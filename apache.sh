@@ -4,7 +4,7 @@
 wait_for_server.sh renderd 7653
 
 
-. /data/usr/local/etc/config.sh
+. /data/config.sh
 
 if [ ! -d /data/etc/apache2 ]; then
 	mkdir -p /data/etc

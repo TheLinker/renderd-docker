@@ -1,13 +1,13 @@
 #!/bin/sh
 
-. /data/usr/local/etc/config.sh
+. /data/config.sh
 
 until [ -f /data/initdb.ready ]; do
     sleep 1
 done
 
 if [ ! -d /data/usr/local/etc ]; then
-	mkdir -p /data/usr/local/etc
+	mkdir -p /data/usr/local
 	mv /usr/local/etc /data/usr/local
     sed -i -e 's#plugins_dir=.*#plugins_dir=/usr/local/lib/mapnik/input#' \
             -e "s#num_threads=.*#num_threads=$NPROCS#" \

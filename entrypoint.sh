@@ -1,13 +1,13 @@
 #!/bin/bash
 
 
-. /data/usr/local/etc/config.sh
-export DATADIR POSTGRES_USER POSTGRES_DB POSTGRES_HOST POSTGRES_PASSWORD NPROCS OSM_PBF OSM_PBF_URL OSM_PBF_BASENAME \
-	OSM_OSRM OSM2PGSQL_CACHE
+if [ ! -f /data/config.sh ]; then
+	mv /usr/local/etc/config.sh /data
+fi
 
-cd /data && \
-ln -sf usr/local/etc/config.sh && \
-cd /
+rm -f /usr/local/etc/config.sh
+
+. /data/config.sh
 
 exec "$@"
 

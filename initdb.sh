@@ -2,7 +2,7 @@
 
 rm -f /data/initdb.ready
 
-. /data/usr/local/etc/config.sh
+. /data/config.sh
 
 if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
 	curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
@@ -10,7 +10,10 @@ if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
 fi
 
 if [ "$REINITDB" ]; then
-	wait_for_server.sh "$POSTGRES_HOST" "$POSTGRES_PORT"
+	until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -w &>/dev/null; do
+        echo "Waiting for postgres"
+        sleep 5
+	done
 	dropdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
 	createdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" && (
 cat << EOF | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
