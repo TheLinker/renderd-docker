@@ -111,7 +111,7 @@ RUN apt update && \
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
 	apt update && \
 	apt install -y nodejs && \
-	npm --unsafe-perm -g install millstone carto mapnik && \
+	npm --unsafe-perm -g install carto mapnik && \
 	apt clean && \
 	rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
