@@ -18,7 +18,13 @@ if [ ! -d /data/usr/local/etc ]; then
             -e 's#;MINZOOM=.*#MINZOOM=0#' \
             -e 's#;MAXZOOM=.*#MAXZOOM=20#' \
             -e 's#;socketname=.*#ipport=7653#' \
+            -e 's#stats_file=.*#stats_file=/data/var/run/renderd/renderd.stats#' \
             -e 's#^;.*##' /data/usr/local/etc/renderd.conf
+fi
+
+if [ ! -d /data/var/run/renderd ]; then
+	mkdir -p /data/var/run/renderd
+	chown osm: /data/var/run/renderd
 fi
 
 cd /usr/local && \
@@ -27,7 +33,7 @@ ln -s /data/usr/local/etc
 
 cd /etc && \
 rm -f renderd.conf && \
-ln -fs /usr/local/etc/renderd.conf
+ln -fs /data/usr/local/etc/renderd.conf
 
 if [ ! -d /data/shapefiles ]; then
 	mkdir /data/shapefiles
@@ -37,8 +43,8 @@ if [ ! -d /data/shapefiles ]; then
 fi
 
 cd /usr/local/share/openstreetmap-carto && \
-rm -rf data && \
-ln -sf /data/shapefiles/data
+	rm -rf data && \
+	ln -sf /data/shapefiles/data
 
 if [ ! -f /data/osm.xml ]; then
     cd /usr/local/share/openstreetmap-carto
@@ -50,21 +56,28 @@ if [ ! -f /data/osm.xml ]; then
 "); modif=1 } {print}' > project-modified.mml
 	sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
 		project-modified.mml
-    carto project-modified.mml > /data/osm.xml
+	mv project-modified.mml project.mml
+    cp project.mml /data
 fi
 
+
 cd /usr/local/share/openstreetmap-carto && \
-rm -rf osm.xml && \
-ln -s /data/osm.xml .
+	rm -f osm.xml && \
+	ln -s /data/osm.xml
+cd /usr/local/share/openstreetmap-carto && \
+	rm -f project.mml && \
+	ln -s /data/project.mml
+cd /usr/local/share/openstreetmap-carto && \
+	carto project.mml > osm.xml
 
 if [ ! -d /data/var/lib/mod_tile ]; then
 	mkdir -p /data/var/lib/mod_tile
 	chown osm: /data/var/lib/mod_tile
 fi
 
-rm -rf /var/lib/mod_tile
 cd /var/lib && \
-ln -s /data/var/lib/mod_tile
+	rm -rf mod_tile && \
+	ln -s /data/var/lib/mod_tile
 
 if [ ! -d /run/lock ]; then
 	rm -f /run/lock

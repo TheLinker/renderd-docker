@@ -1,3 +1,4 @@
+#!/bin/sh
 
 : ${NPROCS:=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)}
 : ${POSTGRES_PASSWORD:=password}
