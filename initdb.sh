@@ -10,7 +10,7 @@ if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
 fi
 
 if [ "$REINITDB" ]; then
-	until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -w &>/dev/null; do
+	until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 -w &>/dev/null; do
         echo "Waiting for postgres"
         sleep 5
 	done
