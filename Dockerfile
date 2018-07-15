@@ -102,7 +102,7 @@ RUN apt update && \
 		fonts-noto-unhinted \
 		netcat-traditional \
 		libboost-regex1.62.0 \
-	    osm2pgsql \
+		osm2pgsql \
 		ttf-dejavu \
 		ttf-dejavu-core \
 		ttf-dejavu-extra \
@@ -125,9 +125,7 @@ RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
 	cd /etc/apache2/sites-enabled && \
 	rm * && \
 	ln -s ../sites-available/tileserver_site.conf && \
-	useradd -ms /bin/bash osm
-
-RUN echo /usr/local/lib > /etc/ld.so.conf.d/local.conf && \
+	useradd -ms /bin/bash osm && \
 	ldconfig
 
 COPY renderd.sh /usr/local/bin/
