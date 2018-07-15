@@ -1,6 +1,7 @@
 #!/bin/bash
 
 rm -f /data/renderd-initdb.ready
+touch /data/renderd-initdb.init
 
 . /data/config.sh
 
@@ -51,5 +52,7 @@ if [ "$REPROCESS" ]; then
 	echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
 
 fi
+
+rm -f /data/renderd-initdb.init
 
 gosu osm touch /data/renderd-initdb.ready
