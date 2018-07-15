@@ -28,18 +28,19 @@ if [ ! -d /data/var/run/renderd ]; then
 fi
 
 cd /usr/local && \
-rm -rf etc && \
-ln -s /data/usr/local/etc
+	rm -rf etc && \
+	ln -s /data/usr/local/etc
 
 cd /etc && \
-rm -f renderd.conf && \
-ln -fs /data/usr/local/etc/renderd.conf
+	rm -f renderd.conf && \
+	ln -fs /data/usr/local/etc/renderd.conf
 
 if [ ! -d /data/shapefiles ]; then
-	mkdir /data/shapefiles
+	gosu osm mkdir /data/shapefiles
 	cd /usr/local/share/openstreetmap-carto
 	./scripts/get-shapefiles.py
 	mv data /data/shapefiles
+	chown -R osm: /data/shapefiles
 fi
 
 cd /usr/local/share/openstreetmap-carto && \
@@ -57,7 +58,7 @@ if [ ! -f /data/osm.xml ]; then
 	sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
 		project-modified.mml
 	mv project-modified.mml project.mml
-    cp project.mml /data
+    gosu osm cp project.mml /data
 fi
 
 
@@ -86,7 +87,7 @@ if [ ! -d /run/lock ]; then
 fi
 
 mkdir -p /run/renderd/
-chown -R osm: /data /run/renderd
+chown -R osm: /run/renderd
 
 cd /
 exec gosu osm renderd -f "$@"

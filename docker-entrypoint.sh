@@ -9,6 +9,8 @@ rm -f /usr/local/etc/config.sh
 
 . /data/config.sh
 
+chown osm: /data
+
 exec "$@"
 
 exit 10

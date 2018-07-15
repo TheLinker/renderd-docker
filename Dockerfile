@@ -1,5 +1,7 @@
 FROM postgres:10 as buildstage
 
+ENV BUMP 2018071502
+
 RUN apt update && \
 	apt -y install \
 		apache2-dev \
@@ -123,20 +125,16 @@ RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
 	cd /etc/apache2/sites-enabled && \
 	rm * && \
 	ln -s ../sites-available/tileserver_site.conf && \
-	useradd -ms /bin/bash osm && \
-	mkfifo -m 600 /var/log/logpipe && \
-	chown osm /var/log/logpipe && \
-	ln -sf /var/log/logpipe /var/log/apache2/access.log && \
-	ln -sf /var/log/logpipe /var/log/apache2/error.log
+	useradd -ms /bin/bash osm
 
 RUN echo /usr/local/lib > /etc/ld.so.conf.d/local.conf && \
 	ldconfig
 
-COPY renderd.sh /usr/local/bin/renderd.sh
-COPY apache.sh /usr/local/bin/apache.sh
-COPY initdb.sh /usr/local/bin/initdb.sh
-COPY config.sh /usr/local/etc/config.sh
-COPY entrypoint.sh /usr/local/sbin/entrypoint.sh
+COPY renderd.sh /usr/local/bin/
+COPY apache.sh /usr/local/bin/
+COPY initdb.sh /usr/local/bin/
+COPY config.sh /usr/local/etc/
+COPY docker-entrypoint.sh /usr/local/bin/
 COPY wait_for_server.sh /usr/local/bin/wait_for_server.sh
 
 VOLUME /data
@@ -144,4 +142,4 @@ VOLUME /data
 EXPOSE 80
 EXPOSE 7653
 
-ENTRYPOINT ["/usr/local/sbin/entrypoint.sh"]
+ENTRYPOINT ["docker-entrypoint.sh"]

@@ -18,25 +18,25 @@ fi
 
 rm -rf /etc/apache2
 cd /etc && \
-ln -s /data/etc/apache2
+	ln -s /data/etc/apache2
 
-rm -rf /usr/local/etc
 cd /usr/local && \
-ln -s /data/usr/local/etc
-rm -f /etc/renderd.conf
+	rm -rf etc && \
+	ln -s /data/usr/local/etc
 cd /etc && \
-ln -fs /usr/local/etc/renderd.conf
+	rm -f renderd.conf && \
+	ln -fs /usr/local/etc/renderd.conf
 
-rm -rf /var/lib/mod_tile
 cd /var/lib && \
-ln -s /data/var/lib/mod_tile
+	rm -rf mod_tile && \
+	ln -s /data/var/lib/mod_tile
 
 cd /
 
-# https://github.com/docker/docker/issues/6880
-cat <> /var/log/logpipe 1>&2 &
-
 . /etc/apache2/envvars  && \
-	mkdir -p $APACHE_RUN_DIR && \
+	mkdir -p "$APACHE_RUN_DIR" && \
     rm -f $APACHE_PID_FILE && \
+    rm -f "$APACHE_LOG_DIR"/error.log "$APACHE_LOG_DIR"/access.log && \
+    ln -sf /dev/stdout "$APACHE_LOG_DIR"/error.log && \
+    ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log && \
     exec /usr/sbin/apache2 -DFOREGROUND

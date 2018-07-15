@@ -5,7 +5,10 @@ rm -f /data/initdb.ready
 . /data/config.sh
 
 if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
-	curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
+	gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
+	gosu osm curl -L -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
+	cd /data && \
+		gosu osm md5sum -c "$OSM_PBF".md5 || exit 1
 	REINITDB=1
 fi
 
@@ -26,7 +29,7 @@ EOF
 fi
 
 if [ "$REPROCESS" ]; then
-	osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
+	gosu osm osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
 		--style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
 		--tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
 		--hstore --hstore-add-index \
@@ -43,10 +46,10 @@ if [ "$REPROCESS" ]; then
 	echo "CREATE INDEX planet_osm_line_index_1
   ON planet_osm_line USING GIST (way);" | psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
 
-	mv -f /data/osm.xml /data/osm.xml.old
+	gosu osm mv -f /data/osm.xml /data/osm.xml.old
 
 	echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
 
 fi
 
-touch /data/initdb.ready
+gosu osm touch /data/initdb.ready

@@ -2,7 +2,7 @@ version: '2'
 
 services:
   postgres:
-    image: mdillon/postgis:10-alpine
+    image: mdillon/postgis:10
     restart: always
     environment:
       - POSTGRES_PASSWORD=supersecret
@@ -11,11 +11,9 @@ services:
     tmpfs:
       - /run
       - /tmp
-    networks:
-      - maps
 
   initdb:
-    image: hammermc/renderd
+    image: hammermc/renderd-docker
     restart: on-failure
     depends_on:
       - postgres
@@ -31,11 +29,9 @@ services:
     tmpfs:
       - /run
       - /tmp
-    networks:
-      - maps
 
   renderd:
-    image: hammermc/renderd
+    image: hammermc/renderd-docker
     restart: always
     depends_on:
       - postgres
@@ -46,11 +42,9 @@ services:
     tmpfs:
       - /run
       - /tmp
-    networks:
-      - maps
 
   apache:
-    image: hammermc/renderd
+    image: hammermc/renderd-docker
     restart: always
     depends_on:
       - renderd
@@ -60,14 +54,9 @@ services:
     tmpfs:
       - /run
       - /tmp
-    networks:
-      - maps
     ports:
       - 80:80
 
 volumes:
   maps-data:
   postgres-data:
-
-networks:
-  maps:
