@@ -23,6 +23,8 @@ services:
       - OSM2PGSQLCACHE=20000 #20gigs used only during init
       - REDOWNLOAD
       - REINITDB
+      - http_proxy
+      - https_proxy
     command: initdb.sh
     volumes:
       - maps-data:/data
@@ -33,6 +35,8 @@ services:
   renderd:
     image: hammermc/renderd-docker
     restart: always
+    environment:
+      - POSTGRES_PASSWORD=supersecret
     depends_on:
       - postgres
       - initdb

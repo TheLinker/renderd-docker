@@ -29,7 +29,7 @@ EOF
 fi
 
 if [ "$REPROCESS" ]; then
-	gosu osm osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
+	osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
 		--style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
 		--tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
 		--hstore --hstore-add-index \
