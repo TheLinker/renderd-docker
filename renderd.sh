@@ -2,7 +2,7 @@
 
 . /data/config.sh
 
-until [ -f /data/initdb.ready ]; do
+until [ -f /data/renderd-initdb.ready ]; do
     sleep 1
 done
 

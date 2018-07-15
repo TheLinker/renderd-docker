@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -f /data/initdb.ready
+rm -f /data/renderd-initdb.ready
 
 . /data/config.sh
 
@@ -52,4 +52,4 @@ if [ "$REPROCESS" ]; then
 
 fi
 
-gosu osm touch /data/initdb.ready
+gosu osm touch /data/renderd-initdb.ready
