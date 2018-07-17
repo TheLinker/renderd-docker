@@ -128,12 +128,8 @@ RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
 	useradd -ms /bin/bash osm && \
 	ldconfig
 
-COPY renderd.sh /usr/local/bin/
-COPY apache.sh /usr/local/bin/
-COPY initdb.sh /usr/local/bin/
 COPY config.sh /usr/local/etc/
 COPY docker-entrypoint.sh /usr/local/bin/
-COPY wait_for_server.sh /usr/local/bin/wait_for_server.sh
 
 VOLUME /data
 
