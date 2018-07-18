@@ -118,7 +118,7 @@ if [ "$1" == "renderd" ]; then
 	shift
 	sleep 5
 	until [ -f /data/renderd-initdb.ready ]; do
-        echo "Waiting for initdb"
+        echo "Waiting for renderd-initdb"
 	    sleep 5
 	done
 
