@@ -16,7 +16,7 @@ services:
 
   initdb:
     image: hammermc/renderd-docker
-    restart: no
+    restart: "no"
     depends_on:
       - postgres
     environment:
@@ -55,7 +55,7 @@ services:
     restart: always
     depends_on:
       - renderd
-    command: apache
+    command: apache2
     volumes:
       - maps-data:/data
       - ./renderd/renderd.conf:/etc/renderd.conf

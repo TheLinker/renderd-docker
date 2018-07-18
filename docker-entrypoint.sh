@@ -99,7 +99,7 @@ EOF
 	exit 0
 fi
 
-if [ "$1" == "apache" ]; then
+if [ "$1" == "apache2" ]; then
 	shift
 	wait_for_server renderd 7653
 	cp /data/osm.xml /usr/local/share/openstreetmap-carto/
