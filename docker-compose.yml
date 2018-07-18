@@ -16,7 +16,7 @@ services:
 
   initdb:
     image: hammermc/renderd-docker
-    restart: on-failure
+    restart: no
     depends_on:
       - postgres
     environment:
