@@ -22,7 +22,7 @@ if [ ! -f ~/.pgpass ]; then
     echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> ~/.pgpass
 fi
 
-if [ ! -f ~osm/.pgpass ]; then
+if [ -d ~osm -a ! -f ~osm/.pgpass ]; then
     touch ~osm/.pgpass
     chown osm: ~osm/.pgpass
     chmod 600 ~osm/.pgpass
