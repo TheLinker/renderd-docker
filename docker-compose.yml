@@ -27,7 +27,7 @@ services:
       - REINITDB
       - http_proxy
       - https_proxy
-    command: initdb
+    command: renderd-initdb
     volumes:
       - maps-data:/data
     tmpfs:

@@ -48,7 +48,7 @@ function wait_for_server () {
 	done
 }
 
-if [ "$1" == "initdb" ]; then
+if [ "$1" == "renderd-initdb" ]; then
 	shift
 	rm -f /data/renderd-initdb.ready
 	touch /data/renderd-initdb.init
@@ -60,6 +60,17 @@ if [ "$1" == "initdb" ]; then
 		cd /data && \
 			gosu osm md5sum -c "$OSM_PBF".md5 || rm -f /data/"$OSM_PBF" && exit 1
 		REINITDB=1
+	fi
+
+	if [ ! -d /data/shapefiles/data ]; then
+		echo "downloading shapefiles"
+		gosu osm mkdir /data/shapefiles
+		cd /usr/local/share/openstreetmap-carto
+		rm -rf data
+		./scripts/get-shapefiles.py
+		mv data /data/shapefiles
+		chown -R osm: /data/shapefiles
+		ln -sf /data/shapefiles/data
 	fi
 
 	if [ "$REINITDB" ]; then
@@ -125,17 +136,6 @@ if [ "$1" == "renderd" ]; then
 	if [ ! -d /data/var/run/renderd ]; then
 		mkdir -p /data/var/run/renderd
 		chown osm: /data/var/run/renderd
-	fi
-
-	if [ ! -d /data/shapefiles ]; then
-		echo "downloading shapefiles"
-		gosu osm mkdir /data/shapefiles
-		cd /usr/local/share/openstreetmap-carto
-		rm -rf data
-		./scripts/get-shapefiles.py
-		mv data /data/shapefiles
-		chown -R osm: /data/shapefiles
-		ln -sf /data/shapefiles/data
 	fi
 
 	cd /usr/local/share/openstreetmap-carto
