@@ -58,7 +58,7 @@ if [ "$1" == "renderd-initdb" ]; then
 		gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
 		gosu osm curl -L -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
 		cd /data && \
-			gosu osm md5sum -c "$OSM_PBF".md5 || rm -f /data/"$OSM_PBF" && exit 1
+			gosu osm md5sum -c "$OSM_PBF".md5 || { rm -f /data/"$OSM_PBF"; exit 1; }
 		REINITDB=1
 	fi
 
