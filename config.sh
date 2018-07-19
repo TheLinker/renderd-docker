@@ -22,9 +22,15 @@ if [ ! -f ~/.pgpass ]; then
     echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> ~/.pgpass
 fi
 
-if [ -d ~osm -a ! -f ~osm/.pgpass ]; then
-    touch ~osm/.pgpass
-    chown osm: ~osm/.pgpass
-    chmod 600 ~osm/.pgpass
-    echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> ~osm/.pgpass
-fi
+for U in osm osrm postgres; do
+	if id "$U" &> /dev/null && [ ! -f /home/"$U"/.pgpass ]; then
+		if [ ! -d /home/"$U" ]; then
+			mkdir /home/"$U"
+			chown "$U": /home/"$U"
+		fi
+	    touch /home/"$U"/.pgpass
+	    chown "$U": /home/"$U"/.pgpass
+	    chmod 600 /home/"$U"/.pgpass
+	    echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> /home/"$U"/.pgpass
+	fi
+done

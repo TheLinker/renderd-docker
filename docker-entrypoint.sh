@@ -73,7 +73,7 @@ if [ "$1" == "renderd-initdb" ]; then
 		ln -sf /data/shapefiles/data
 	fi
 
-	if [ "$REINITDB" ]; then
+	if [ "$REINITDB" ] || ! `echo select 1 | gosu postgres psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" &> /dev/null` ; then
 		until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 -w &>/dev/null; do
 	        echo "Waiting for postgres"
 	        sleep 5
