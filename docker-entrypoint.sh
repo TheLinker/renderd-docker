@@ -110,7 +110,7 @@ EOF
 	exit 0
 fi
 
-if [ "$1" == "apache2" ]; then
+if [ "$1" == "renderd-apache2" ]; then
 	shift
 	wait_for_server renderd 7653
 	cp /data/osm.xml /usr/local/share/openstreetmap-carto/
@@ -120,8 +120,11 @@ if [ "$1" == "apache2" ]; then
 	    rm -f $APACHE_PID_FILE && \
 	    rm -f "$APACHE_LOG_DIR"/error.log "$APACHE_LOG_DIR"/access.log && \
 	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/error.log && \
-	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log && \
-	    exec /usr/sbin/apache2 -DFOREGROUND "$@"
+	    ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log
+	if [ "$#" -gt 0 ]; then
+		exec "$@"
+	fi
+	exec /usr/sbin/apache2 -DFOREGROUND
 fi
 
 
@@ -161,7 +164,12 @@ if [ "$1" == "renderd" ]; then
 	chown -R osm: /run/renderd
 
 	cd /
-	exec gosu osm renderd -f "$@"
+
+	if [ "$#" -gt 0 ]; then
+		exec "$@"
+	fi
+
+	exec gosu osm renderd -f
 fi
 
 exec "$@"

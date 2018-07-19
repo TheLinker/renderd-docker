@@ -27,6 +27,8 @@ services:
       - REINITDB
       - http_proxy
       - https_proxy
+    # you can run renderd with custom options with (eg)
+    # command: renderd-initdb renderd -f --config=/etc/renderd.conf
     command: renderd-initdb
     volumes:
       - maps-data:/data
@@ -55,7 +57,9 @@ services:
     restart: always
     depends_on:
       - renderd
-    command: apache2
+    # you can run apache2 with custom options with (eg)
+    # command: renderd-apache2 apache2 -DFOREGROUND -f /etc/apache2/apache2.conf
+    command: renderd-apache2
     volumes:
       - maps-data:/data
       - ./renderd/renderd.conf:/etc/renderd.conf
