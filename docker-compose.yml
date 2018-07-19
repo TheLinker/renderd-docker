@@ -27,8 +27,6 @@ services:
       - REINITDB
       - http_proxy
       - https_proxy
-    # you can run renderd with custom options with (eg)
-    # command: renderd-initdb renderd -f --config=/etc/renderd.conf
     command: renderd-initdb
     volumes:
       - maps-data:/data
@@ -44,6 +42,10 @@ services:
     depends_on:
       - postgres
       - initdb
+    # you can run renderd with custom options with (eg)
+    # command: renderd renderd -f --config=/etc/renderd.conf
+    # the two "renderd renderd" is required, the first selects the block to run in docker-entrypoint.sh
+    # the second is the executable to run, ie it could be renderd cat /etc/renderd.conf to copy the renderd.conf
     command: renderd
     volumes:
       - maps-data:/data
