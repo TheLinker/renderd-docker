@@ -1,7 +1,8 @@
 #!/bin/sh
 
+# these will only be set if they aren't already set
 : ${NPROCS:=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)}
-: ${POSTGRES_PASSWORD:=password}
+: ${POSTGRES_PASSWORD:=supersecret}
 : ${POSTGRES_HOST:=postgres}
 : ${POSTGRES_USER:=postgres}
 : ${POSTGRES_DB:=gis}

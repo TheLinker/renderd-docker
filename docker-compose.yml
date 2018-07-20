@@ -19,10 +19,9 @@ services:
     restart: "no"
     depends_on:
       - postgres
+    env_file:
+      - osm.env
     environment:
-      - POSTGRES_PASSWORD=supersecret
-      - OSM_PBF_URL=http://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf
-      - OSM2PGSQLCACHE=20000 #20gigs used only during init
       - REDOWNLOAD
       - REINITDB
       - http_proxy
@@ -30,6 +29,7 @@ services:
     command: renderd-initdb
     volumes:
       - maps-data:/data
+      - ./osm-config.sh:/usr/local/etc/osm-config.sh
     tmpfs:
       - /run
       - /tmp
@@ -37,8 +37,8 @@ services:
   renderd:
     image: hammermc/renderd-docker
     restart: always
-    environment:
-      - POSTGRES_PASSWORD=supersecret
+    env_file:
+      - osm.env
     depends_on:
       - postgres
       - initdb
@@ -50,6 +50,7 @@ services:
     volumes:
       - maps-data:/data
       - ./renderd/renderd.conf:/etc/renderd.conf
+      - ./osm-config.sh:/usr/local/etc/osm-config.sh
     tmpfs:
       - /run
       - /tmp
@@ -66,6 +67,7 @@ services:
       - maps-data:/data
       - ./renderd/renderd.conf:/etc/renderd.conf
       - ./apache/tileserver_site.conf:/etc/apache2/sites-available/tileserver_site.conf
+      - ./osm-config.sh:/usr/local/etc/osm-config.sh
     tmpfs:
       - /run
       - /tmp

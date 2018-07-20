@@ -128,7 +128,6 @@ RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
 	useradd -ms /bin/bash osm && \
 	ldconfig
 
-COPY config.sh /usr/local/etc/
 COPY docker-entrypoint.sh /usr/local/bin/
 
 VOLUME /data
