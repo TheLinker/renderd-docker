@@ -38,10 +38,15 @@ RUN apt update && \
 		python-dev \
 		python-gdal \
 		python-nose \
+		python-pip \
+		python3-pip \
 		ttf-dejavu \
 		ttf-dejavu-core \
 		ttf-dejavu-extra \
 		ttf-unifont
+
+RUN pip3 install osmium
+RUN pip install osmium
 
 ENV MAPNIK_VERSION v3.0.20
 RUN	git clone --depth 1 --branch $MAPNIK_VERSION http://github.com/mapnik/mapnik
