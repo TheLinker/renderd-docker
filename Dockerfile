@@ -11,6 +11,7 @@ RUN apt update && \
 		gdal-bin \
 		git \
 		libboost-all-dev \
+		libbz2-dev \
 		libcairo2-dev \
 		libcairomm-1.0-dev \
 		libfreetype6-dev \
