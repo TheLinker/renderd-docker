@@ -138,19 +138,22 @@ if [ "$1" == "renderd" ]; then
 		chown osm: /data/var/run/renderd
 	fi
 
-	cd /usr/local/share/openstreetmap-carto
-	# it's a yaml file, indentation in important
-	cat project.mml | awk '/dbname/ && !modif { printf("\
+	if [ "$REDOWNLOAD" -o "$REEXTRACT" -o "$REINITDB" -o ! -f /data/osm.xml ]; then
+		cd /usr/local/share/openstreetmap-carto
+		# it's a yaml file, indentation is important
+		cat project.mml | awk '/dbname/ && !modif { printf("\
     host: \"'"$POSTGRES_HOST"'\"\n\
     port: '"$POSTGRES_PORT"'\n\
     user: \"'"$POSTGRES_USER"'\"\n\
     password: \"'"$POSTGRES_PASSWORD"'\"\n\
 "); modif=1 } {print}' > project-modified.mml
-	sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
-		project-modified.mml
-	mv project-modified.mml project.mml
-	carto project.mml > /data/osm.xml
-	cp /data/osm.xml .
+		sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
+			project-modified.mml
+		mv project-modified.mml project.mml
+		carto project.mml > /data/osm.xml
+	fi
+
+	cp /data/osm.xml /usr/local/share/openstreetmap-carto
 
 	if [ ! -d /data/var/lib/mod_tile ]; then
 		mkdir -p /data/var/lib/mod_tile
