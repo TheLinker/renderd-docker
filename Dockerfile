@@ -106,6 +106,7 @@ RUN apt update && \
 		fonts-noto-hinted \
 		fonts-noto-unhinted \
 		netcat-traditional \
+		libboost-python1.62.0 \
 		libboost-regex1.62.0 \
 		osm2pgsql \
 		ttf-dejavu \
