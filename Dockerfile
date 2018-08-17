@@ -1,6 +1,6 @@
-FROM postgres:10 as buildstage
+FROM postgres:10.4 as buildstage
 
-ENV BUMP 2018073001
+ENV BUMP 2018080901
 
 RUN apt update && \
     apt -y install \
@@ -94,7 +94,7 @@ RUN set -x \
     && chmod +x /usr/local/bin/gosu \
     && gosu nobody true
 
-FROM postgres:10 as runstage
+FROM postgres:10.4 as runstage
 COPY --from=buildstage /usr/local/ /usr/local/
 
 RUN apt update && \
