@@ -14,7 +14,7 @@
 : ${OSM2PGSQLCACHE:=1000}
 
 export DATADIR POSTGRES_USER POSTGRES_DB POSTGRES_HOST POSTGRES_PASSWORD NPROCS OSM_PBF OSM_PBF_URL OSM_PBF_BASENAME \
-	OSM_OSRM OSM2PGSQLCACHE
+    OSM_OSRM OSM2PGSQLCACHE
 
 
 if [ ! -f ~/.pgpass ]; then
@@ -31,14 +31,14 @@ if [ -d ~postgres -a ! -f ~postgres/.pgpass ]; then
 fi
 
 for U in osm osrm postgres; do
-	if id "$U" &> /dev/null && [ ! -f /home/"$U"/.pgpass ]; then
-		if [ ! -d /home/"$U" ]; then
-			mkdir /home/"$U"
-			chown "$U": /home/"$U"
-		fi
-	    touch /home/"$U"/.pgpass
-	    chown "$U": /home/"$U"/.pgpass
-	    chmod 600 /home/"$U"/.pgpass
-	    echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> /home/"$U"/.pgpass
-	fi
+    if id "$U" &> /dev/null && [ ! -f /home/"$U"/.pgpass ]; then
+        if [ ! -d /home/"$U" ]; then
+            mkdir /home/"$U"
+            chown "$U": /home/"$U"
+        fi
+        touch /home/"$U"/.pgpass
+        chown "$U": /home/"$U"/.pgpass
+        chmod 600 /home/"$U"/.pgpass
+        echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> /home/"$U"/.pgpass
+    fi
 done
