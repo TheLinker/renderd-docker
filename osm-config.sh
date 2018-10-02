@@ -23,7 +23,7 @@ if [ ! -f ~/.pgpass ]; then
     echo "$POSTGRES_HOST:$POSTGRES_PORT:*:$POSTGRES_USER:$POSTGRES_PASSWORD" >> ~/.pgpass
 fi
 
-if [ ! -f ~postgres/.pgpass ]; then
+if [ -d ~postgres -a ! -f ~postgres/.pgpass ]; then
     touch ~postgres/.pgpass
     chmod 600 ~postgres/.pgpass
     chown postgres: ~postgres/.pgpass
