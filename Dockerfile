@@ -1,6 +1,6 @@
 FROM postgres:10 as buildstage
 
-ENV BUMP 2018100102
+ENV BUMP 2018102201
 
 RUN apt update && \
     apt -y install \
@@ -49,7 +49,7 @@ RUN apt update && \
 RUN pip3 install osmium
 RUN pip install osmium
 
-ENV MAPNIK_VERSION v3.0.20
+ENV MAPNIK_VERSION v3.0.21
 RUN	git clone --depth 1 --branch $MAPNIK_VERSION http://github.com/mapnik/mapnik
 RUN cd /mapnik && \
     git submodule update --init
