@@ -1,6 +1,6 @@
 FROM postgres:10 as buildstage
 
-ENV BUMP 2018102201
+ENV BUMP 2019011101
 
 RUN apt update && \
     apt -y install \
@@ -53,10 +53,9 @@ ENV MAPNIK_VERSION v3.0.21
 RUN	git clone --depth 1 --branch $MAPNIK_VERSION http://github.com/mapnik/mapnik
 RUN cd /mapnik && \
     git submodule update --init
-RUN NPROCS=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) && \
-    cd /mapnik && \
+RUN cd /mapnik && \
     ./configure && \
-    JOBS=$NPROCS make && \
+    make && \
     make install
 
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
@@ -81,19 +80,6 @@ RUN mkdir -p /usr/local/share/ && \
     git clone --depth 1 http://github.com/mapbox/osm-bright.git && \
     git clone --depth 1 https://github.com/gravitystorm/openstreetmap-carto.git
 
-## grab gosu for easy step-down from root
-ENV GOSU_VERSION 1.10
-RUN set -x \
-    && apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/* \
-    && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" \
-    && wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" \
-    && export GNUPGHOME="$(mktemp -d)" \
-    && gpg --keyserver ipv4.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 \
-    && gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu \
-    && rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc \
-    && chmod +x /usr/local/bin/gosu \
-    && gosu nobody true
-
 FROM postgres:10 as runstage
 COPY --from=buildstage /usr/local/ /usr/local/
 
@@ -106,6 +92,7 @@ RUN apt update && \
         fonts-noto-cjk \
         fonts-noto-hinted \
         fonts-noto-unhinted \
+        gosu \
         netcat-traditional \
         libboost-python1.62.0 \
         libboost-regex1.62.0 \
@@ -135,11 +122,11 @@ RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
     useradd -ms /bin/bash osm && \
     ldconfig
 
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY renderd-docker-entrypoint.sh /usr/local/bin/
 
 VOLUME /data
 
 EXPOSE 80
 EXPOSE 7653
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["renderd-docker-entrypoint.sh"]

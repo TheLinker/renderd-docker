@@ -44,6 +44,16 @@ function wait_for_server () {
     done
 }
 
+if [ "$1" == "renderd-reinitdb" ]; then
+    echo "$1" called, reinitializing database
+    REINITDB=1 exec $0 renderd-initdb
+fi
+
+if [ "$1" == "renderd-redownload" ]; then
+    echo "$1" called, redownloading osm files
+    REDOWNLOAD=1 exec $0 renderd-initdb
+fi
+
 if [ "$1" == "renderd-initdb" ]; then
     shift
     rm -f /data/renderd-initdb.ready
