@@ -171,8 +171,7 @@ if [ "$1" == "renderd" ]; then
 "); modif=1 } {print}' > project-modified.mml
         sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
             project-modified.mml
-        mv project-modified.mml project.mml
-        carto project.mml > /data/osm.xml
+        carto project-modified.mml > /data/osm.xml
     fi
 
     cp /data/osm.xml /usr/local/share/openstreetmap-carto
