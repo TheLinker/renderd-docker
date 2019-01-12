@@ -49,13 +49,25 @@ if [ "$1" == "renderd-reinitdb" ]; then
     REINITDB=1 exec $0 renderd-initdb
 fi
 
+if [ "$1" == "renderd-reprocess" ]; then
+    echo "$1" called, reprocessing database
+    REPROCESS=1 exec $0 renderd-initdb
+fi
+
 if [ "$1" == "renderd-redownload" ]; then
     echo "$1" called, redownloading osm files
     REDOWNLOAD=1 exec $0 renderd-initdb
 fi
 
 if [ "$1" == "renderd-initdb" ]; then
+    echo "$1" called
     shift
+
+    if [ -f /data/renderd-initdb.init ]; then
+        echo "Interrupted renderd-initdb detected, rerunning reinitdb"
+        REINITDB=1
+    fi
+
     rm -f /data/renderd-initdb.ready
     touch /data/renderd-initdb.init
 
@@ -108,7 +120,7 @@ EOF
         echo "CREATE INDEX planet_osm_line_index_1 ON planet_osm_line USING GIST (way);" | \
             psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
         gosu osm mv -f /data/osm.xml /data/osm.xml.old
-        echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
+        echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
     fi
 
     rm -f /data/renderd-initdb.init
@@ -124,7 +136,7 @@ if [ "$1" == "renderd-apache2" ]; then
 
     . /etc/apache2/envvars  && \
         mkdir -p "$APACHE_RUN_DIR" && \
-        rm -f $APACHE_PID_FILE && \
+        rm -f "$APACHE_PID_FILE" && \
         rm -f "$APACHE_LOG_DIR"/error.log "$APACHE_LOG_DIR"/access.log && \
         ln -sf /dev/stdout "$APACHE_LOG_DIR"/error.log && \
         ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log
