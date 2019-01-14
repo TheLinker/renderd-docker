@@ -55,9 +55,77 @@ if [ "$1" == "renderd-reprocess" ]; then
 fi
 
 if [ "$1" == "renderd-redownload" ]; then
-    echo "$1" called, redownloading osm files
+    echo "$1" called, redownloading "$OSM_PBF_URL"
     REDOWNLOAD=1 exec $0 renderd-initdb
 fi
+
+if [ "$1" == "renderd-updatedb" ]; then
+    echo "$1" called
+
+    if [ -z "$OSM_PBF_UPDATE_URL" ]; then
+        echo "$1 OSM_PBF_UPDATE_URL not set, exiting"
+        exit 1
+    fi
+
+    if [ -f /data/renderd-updatedb.lock ]; then
+        echo "previous $1 still running or crashed, exiting without updating"
+        exit 2
+    fi
+
+    sleep 5
+    until [ ! -f /data/renderd-initdb.init ]; do
+        echo "$1 waiting for init to finish"
+        sleep 30
+    done
+
+    gosu osm touch /data/renderd-updatedb.lock
+
+    if [ ! -f /data/osmosis/configuration.txt ]; then
+        gosu osm osmosis --read-replication-interval-init workingDirectory=/data/osmosis/
+        gosu osm sed -i -e "s#baseUrl=.*#baseUrl=$OSM_PBF_UPDATE_URL#" \
+                        -e "s/maxInterval.*/maxInterval = 43200/" /data/osmosis/configuration.txt
+    fi
+
+    if [ ! -f /data/osmosis/state.txt ]; then
+        gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
+    fi
+    eval `grep sequenceNumber= /data/osmosis/state.txt`
+    oldsequenceNumber="$sequenceNumber"
+    count=0
+    cd /data/osmosis
+    gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
+        --write-xml-change changes.osc.gz
+    eval `grep sequenceNumber= state.txt`
+    until [ "$oldsequenceNumber" == "$sequenceNumber" -o "$count" -gt 30 ]; do
+        let count=count+1
+        gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
+            --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
+            --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
+            --hstore --hstore-add-index changes.osc.gz || { echo "osm2pgsql error applying changes to database, exiting"; exit 3; }
+        oldsequenceNumber="$sequenceNumber"
+        gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
+                            --write-xml-change changes.osc.gz
+        eval `grep sequenceNumber= state.txt`
+        if [ "$oldsequenceNumber" == "$sequenceNumber" ]; then
+            break
+        fi
+        gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
+                        --write-pbf file="$OSM_PBF" && \
+            mv "$OSM_PBF" /data/"$OSM_PBF"
+        sleep 10
+    done
+
+    rm -f /data/renderd-updatedb.lock
+    exit 0
+fi
+
+create_shapefiles_dir () {
+    ( cd /usr/local/share/openstreetmap-carto
+        rm -rf data
+        gosu osm mkdir -p /data/shapefiles/data
+        ln -sf /data/shapefiles/data
+    )
+}
 
 if [ "$1" == "renderd-initdb" ]; then
     echo "$1" called
@@ -65,40 +133,39 @@ if [ "$1" == "renderd-initdb" ]; then
 
     if [ -f /data/renderd-initdb.init ]; then
         echo "Interrupted renderd-initdb detected, rerunning reinitdb"
-        REINITDB=1
+        REDOWNLOAD=1
     fi
 
     rm -f /data/renderd-initdb.ready
-    touch /data/renderd-initdb.init
+    gosu osm touch /data/renderd-initdb.init
 
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
         echo "downloading $OSM_PBF_URL"
+        gosu osm mkdir -p /data/osmosis
+        gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
         gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
         gosu osm curl -L -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
         cd /data && \
-            gosu osm md5sum -c "$OSM_PBF".md5 || { rm -f /data/"$OSM_PBF"; exit 1; }
+            gosu osm md5sum -c "$OSM_PBF".md5 || { rm -f "$OSM_PBF"; exit 4; }
         REINITDB=1
     fi
 
-    if [ ! -d /data/shapefiles/data ]; then
+    create_shapefiles_dir
+
+    if [ ! -d /data/shapefiles/data -o "$REDOWNLOAD" ]; then
         echo "downloading shapefiles"
-        gosu osm mkdir /data/shapefiles
-        cd /usr/local/share/openstreetmap-carto
-        rm -rf data
-        ./scripts/get-shapefiles.py
-        mv data /data/shapefiles
-        chown -R osm: /data/shapefiles
-        ln -sf /data/shapefiles/data
+        ( cd /usr/local/share/openstreetmap-carto
+        gosu osm ./scripts/get-shapefiles.py )
     fi
 
-    until echo select 1 | gosu postgres psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 &> /dev/null ; do
+    until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 &> /dev/null ; do
         echo "Waiting for postgres"
         sleep 5
     done
 
-    if [ "$REINITDB" ] || ! $(echo select 1 | gosu postgres psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" &> /dev/null) ; then
-        dropdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
-        createdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" && (
+    if [ "$REINITDB" ] || ! $(echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" &> /dev/null) ; then
+        gosu osm dropdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
+        gosu osm createdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" && (
             cat << EOF | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
                 CREATE EXTENSION IF NOT EXISTS postgis;
                 CREATE EXTENSION IF NOT EXISTS postgis_topology;
@@ -110,17 +177,17 @@ EOF
 
     if [ "$REPROCESS" ]; then
         echo "importing $OSM_PBF"
-        osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
+        gosu osm osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
             --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
             --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
             --hstore --hstore-add-index \
             --number-processes $NPROCS \
             /data/"$OSM_PBF"
-        psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -f /usr/local/share/openstreetmap-carto/indexes.sql
+        gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -f /usr/local/share/openstreetmap-carto/indexes.sql
         echo "CREATE INDEX planet_osm_line_index_1 ON planet_osm_line USING GIST (way);" | \
-            psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
+            gosu osm psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
         gosu osm mv -f /data/osm.xml /data/osm.xml.old
-        echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+        echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
     fi
 
     rm -f /data/renderd-initdb.init
@@ -152,13 +219,15 @@ if [ "$1" == "renderd" ]; then
     sleep 5
     until [ -f /data/renderd-initdb.ready ]; do
         echo "Waiting for renderd-initdb"
-        sleep 5
+        sleep 30
     done
 
     if [ ! -d /data/var/run/renderd ]; then
         mkdir -p /data/var/run/renderd
         chown osm: /data/var/run/renderd
     fi
+
+    create_shapefiles_dir
 
     if [ "$REDOWNLOAD" -o "$REEXTRACT" -o "$REINITDB" -o ! -f /data/osm.xml ]; then
         cd /usr/local/share/openstreetmap-carto
@@ -187,7 +256,7 @@ if [ "$1" == "renderd" ]; then
     cd /
 
     if [ "$#" -gt 0 ]; then
-        exec "$@"
+        exec renderd "$@"
     fi
 
     exec gosu osm renderd -f

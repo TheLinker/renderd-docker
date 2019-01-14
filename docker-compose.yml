@@ -34,6 +34,27 @@ services:
       - /run
       - /tmp
 
+  updatedb:
+    image: hammermc/renderd-docker
+    restart: "no"
+    depends_on:
+      - postgres
+      - initdb
+    env_file:
+      - osm.env
+    environment:
+      - REDOWNLOAD
+      - REINITDB
+      - http_proxy
+      - https_proxy
+    command: renderd-updatedb
+    volumes:
+      - maps-data:/data
+      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+    tmpfs:
+      - /run
+      - /tmp
+
   renderd:
     image: hammermc/renderd-docker
     restart: always
@@ -42,10 +63,9 @@ services:
     depends_on:
       - postgres
       - initdb
+      - updatedb
     # you can run renderd with custom options with (eg)
-    # command: renderd renderd -f --config=/etc/renderd.conf
-    # the two "renderd renderd" is required, the first selects the block to run in docker-entrypoint.sh
-    # the second is the executable to run, ie it could be renderd cat /etc/renderd.conf to copy the renderd.conf
+    # command: renderd -f --config=/etc/renderd.conf
     command: renderd
     volumes:
       - maps-data:/data

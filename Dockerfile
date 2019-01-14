@@ -97,6 +97,7 @@ RUN apt update && \
         libboost-python1.62.0 \
         libboost-regex1.62.0 \
         osm2pgsql \
+        osmosis \
         ttf-dejavu \
         ttf-dejavu-core \
         ttf-dejavu-extra \
