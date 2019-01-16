@@ -6,6 +6,10 @@ if [ -f /usr/local/etc/osm-config.sh ]; then
     . /usr/local/etc/osm-config.sh
 fi
 
+if [ "$1" == "postgres" ]; then
+    exec docker-entrypoint.sh "$@"
+fi
+
 chown osm: /data
 
 cd /var/lib && \
@@ -73,7 +77,7 @@ if [ "$1" == "renderd-updatedb" ]; then
     fi
 
     sleep 5
-    until [ ! -f /data/renderd-initdb.init ]; do
+    until [ ! -f /data/renderd-initdb.init -a -f /data/renderd-initdb.ready ]; do
         echo "$1 waiting for init to finish"
         sleep 30
     done
@@ -94,17 +98,17 @@ if [ "$1" == "renderd-updatedb" ]; then
     count=0
     cd /data/osmosis
     gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
-        --write-xml-change changes.osc.gz
+        --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 5"; exit 5; }
     eval `grep sequenceNumber= state.txt`
     until [ "$oldsequenceNumber" == "$sequenceNumber" -o "$count" -gt 30 ]; do
         let count=count+1
         gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
             --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
             --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
-            --hstore --hstore-add-index changes.osc.gz || { echo "osm2pgsql error applying changes to database, exiting"; exit 3; }
+            --hstore --hstore-add-index changes.osc.gz || { echo "osm2pgsql error applying changes to database, exit 3"; exit 3; }
         oldsequenceNumber="$sequenceNumber"
         gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
-                            --write-xml-change changes.osc.gz
+                            --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
         eval `grep sequenceNumber= state.txt`
         if [ "$oldsequenceNumber" == "$sequenceNumber" ]; then
             break
@@ -142,20 +146,25 @@ if [ "$1" == "renderd-initdb" ]; then
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
         echo "downloading $OSM_PBF_URL"
         gosu osm mkdir -p /data/osmosis
-        gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
-        gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL"
-        gosu osm curl -L -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5
-        cd /data && \
-            gosu osm md5sum -c "$OSM_PBF".md5 || { rm -f "$OSM_PBF"; exit 4; }
+        gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt || {
+            echo "error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"; exit 7; }
+        gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL" || {
+            echo "error downloading $OSM_PBF_URL, exit 8"; exit 8; }
+        gosu osm curl -L -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5 || {
+            echo "error downloading ${OSM_PBF_URL}.md5, exit 9"; exit 9; }
+        ( cd /data && \
+            gosu osm md5sum -c "$OSM_PBF".md5 ) || {
+                rm -f "$OSM_PBF".md5 "$OSM_PBF"; echo "md5sum mismatch on /data/$OSM_PBF, exit 4"; exit 4
+            }
         REINITDB=1
     fi
 
     create_shapefiles_dir
 
-    if [ ! -d /data/shapefiles/data -o "$REDOWNLOAD" ]; then
+    if [ ! "$(ls /usr/local/share/openstreetmap-carto/data/)" -o "$REDOWNLOAD" ]; then
         echo "downloading shapefiles"
-        ( cd /usr/local/share/openstreetmap-carto
-        gosu osm ./scripts/get-shapefiles.py )
+        ( cd /usr/local/share/openstreetmap-carto && \
+            gosu osm ./scripts/get-shapefiles.py ) || { echo "error downloading shapefiles, exit 11"; exit 11; }
     fi
 
     until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 &> /dev/null ; do
@@ -171,7 +180,7 @@ if [ "$1" == "renderd-initdb" ]; then
                 CREATE EXTENSION IF NOT EXISTS postgis_topology;
                 CREATE EXTENSION IF NOT EXISTS hstore;
 EOF
-            )
+            ) || { echo "error creating database schema, exit 12"; exit 12; }
         REPROCESS=1
     fi
 
@@ -182,7 +191,7 @@ EOF
             --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
             --hstore --hstore-add-index \
             --number-processes $NPROCS \
-            /data/"$OSM_PBF"
+            /data/"$OSM_PBF" || { echo "error importing $OSM_PBF, exit 13"; exit 13; }
         gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -f /usr/local/share/openstreetmap-carto/indexes.sql
         echo "CREATE INDEX planet_osm_line_index_1 ON planet_osm_line USING GIST (way);" | \
             gosu osm psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
@@ -230,7 +239,7 @@ if [ "$1" == "renderd" ]; then
     create_shapefiles_dir
 
     if [ "$REDOWNLOAD" -o "$REEXTRACT" -o "$REINITDB" -o ! -f /data/osm.xml ]; then
-        cd /usr/local/share/openstreetmap-carto
+        ( cd /usr/local/share/openstreetmap-carto
         # it's a yaml file, indentation is important
         cat project.mml | awk '/dbname/ && !modif { printf("\
     host: \"'"$POSTGRES_HOST"'\"\n\
@@ -240,7 +249,7 @@ if [ "$1" == "renderd" ]; then
 "); modif=1 } {print}' > project-modified.mml
         sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
             project-modified.mml
-        carto project-modified.mml > /data/osm.xml
+        carto project-modified.mml > /data/osm.xml ) || { echo "error generating carto stylesheet, exit 15"; exit 15; }
     fi
 
     cp /data/osm.xml /usr/local/share/openstreetmap-carto
