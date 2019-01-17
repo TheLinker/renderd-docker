@@ -31,7 +31,7 @@ RUN apt update && \
         pktools-dev \
         postgresql-10-pgrouting \
         postgresql-10-pgrouting-scripts \
-        postgresql-10-postgis-2.4 \
+        postgresql-10-postgis \
         postgresql-10-postgis-scripts \
         postgresql-contrib \
         postgresql-server-dev-10 \
@@ -98,6 +98,11 @@ RUN apt update && \
         libboost-regex1.62.0 \
         osm2pgsql \
         osmosis \
+        postgresql-10-pgrouting \
+        postgresql-10-pgrouting-scripts \
+        postgresql-10-postgis \
+        postgresql-10-postgis-scripts \
+        postgresql-contrib \
         ttf-dejavu \
         ttf-dejavu-core \
         ttf-dejavu-extra \
