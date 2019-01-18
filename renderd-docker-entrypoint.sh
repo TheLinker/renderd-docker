@@ -123,12 +123,24 @@ if [ "$1" == "renderd-updatedb" ]; then
     exit 0
 fi
 
-create_shapefiles_dir () {
-    ( cd /usr/local/share/openstreetmap-carto
-        rm -rf data
+shapefiles_dir () {
+    case "$1" in
+    create) echo "Creating shapefiles dir"
+        ( cd /usr/local/share/openstreetmap-carto && \
+            rm -rf data && \
+            gosu osm mkdir -p /data/shapefiles/data && \
+            ln -sf /data/shapefiles/data
+        ) || return 1
+    ;;
+    delete) echo "Deleting shapefiles dir"
+        rm -rf /data/shapefiles/data
         gosu osm mkdir -p /data/shapefiles/data
-        ln -sf /data/shapefiles/data
-    )
+    ;;
+    *) echo "$0 [create|delete]"
+        return 2
+    ;;
+    esac
+    return 0
 }
 
 if [ "$1" == "renderd-initdb" ]; then
@@ -159,12 +171,16 @@ if [ "$1" == "renderd-initdb" ]; then
         REINITDB=1
     fi
 
-    create_shapefiles_dir
+    shapefiles_dir create || exit 16
 
     if [ ! "$(ls /usr/local/share/openstreetmap-carto/data/)" -o "$REDOWNLOAD" ]; then
         echo "downloading shapefiles"
         ( cd /usr/local/share/openstreetmap-carto && \
-            gosu osm ./scripts/get-shapefiles.py ) || { echo "error downloading shapefiles, exit 11"; exit 11; }
+            gosu osm ./scripts/get-shapefiles.py ) || {
+                echo "error downloading shapefiles, exit 11"
+                shapefiles_dir delete
+                exit 11
+            }
     fi
 
     until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 &> /dev/null ; do
@@ -236,7 +252,7 @@ if [ "$1" == "renderd" ]; then
         chown osm: /data/var/run/renderd
     fi
 
-    create_shapefiles_dir
+    shapefiles_dir create
 
     if [ "$REDOWNLOAD" -o "$REEXTRACT" -o "$REINITDB" -o ! -f /data/osm.xml ]; then
         ( cd /usr/local/share/openstreetmap-carto
