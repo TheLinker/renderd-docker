@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 echo "starting $@"
 
 if [ -f /usr/local/etc/osm-config.sh ]; then
@@ -91,55 +93,70 @@ if [ "$1" == "renderd-updatedb" ]; then
         exit 1
     fi
 
-    if [ -f /data/renderd-updatedb.lock ]; then
-        echo "previous $1 still running or crashed, exiting without updating"
-        exit 2
-    fi
-
     sleep 5
     until [ ! -f /data/renderd-initdb.init -a -f /data/renderd-initdb.ready ]; do
         echo "$1 waiting for init to finish"
         sleep 30
     done
 
-    gosu osm touch /data/renderd-updatedb.lock
-
-    if [ ! -f /data/osmosis/configuration.txt ]; then
-        gosu osm osmosis --read-replication-interval-init workingDirectory=/data/osmosis/
-        gosu osm sed -i -e "s#baseUrl=.*#baseUrl=$OSM_PBF_UPDATE_URL#" \
-                        -e "s/maxInterval.*/maxInterval = 43200/" /data/osmosis/configuration.txt
-    fi
-
-    if [ ! -f /data/osmosis/state.txt ]; then
-        gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
-    fi
-    eval `grep sequenceNumber= /data/osmosis/state.txt`
-    oldsequenceNumber="$sequenceNumber"
-    count=0
-    cd /data/osmosis
-    gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
-        --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 5"; exit 5; }
-    eval `grep sequenceNumber= state.txt`
-    until [ "$oldsequenceNumber" == "$sequenceNumber" -o "$count" -gt 30 ]; do
-        let count=count+1
-        gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
-            --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
-            --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
-            --hstore --hstore-add-index changes.osc.gz || { echo "osm2pgsql error applying changes to database, exit 3"; exit 3; }
-        oldsequenceNumber="$sequenceNumber"
-        gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
-                            --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
-        eval `grep sequenceNumber= state.txt`
-        if [ "$oldsequenceNumber" == "$sequenceNumber" ]; then
-            break
+    while :; do
+        if [ -f /data/renderd-updatedb.lock ]; then
+            echo "Interrupted $1 detected, rerunning $1"
+            eval `cat /data/renderd-updatedb.lock`
+            reupdatecount=$(( $reupdatecount + 1 ))
+            if [ "$reupdatecount" > 2 ]; then
+                if [ "$reupdatecount" > 24 ]; then
+                    reupdatecount=24
+                fi
+                echo "$1 has failed $reupdatecount times before, sleeping for $(( $reupdatecount * 3600 )) seconds"
+                sleep $(( $reupdatecount * 3600 ))
+            fi
+            echo "reupdatecount=$reupdatecount" > /data/renderd-updatedb.lock
+        else
+            echo "reupdatecount=0" > /data/renderd-updatedb.lock
+            eval `cat /data/renderd-updatedb.lock`
         fi
-        gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
-                        --write-pbf file="$OSM_PBF" && \
-            mv "$OSM_PBF" /data/"$OSM_PBF"
-        sleep 10
-    done
 
-    rm -f /data/renderd-updatedb.lock
+        if [ ! -f /data/osmosis/configuration.txt ]; then
+            gosu osm osmosis --read-replication-interval-init workingDirectory=/data/osmosis/ || {
+                echo "Error initialising replication interval, exit 18"
+                exit 18
+            }
+            gosu osm sed -i -e "s#baseUrl=.*#baseUrl=$OSM_PBF_UPDATE_URL#" \
+                            -e "s/maxInterval.*/maxInterval = 43200/" /data/osmosis/configuration.txt
+        fi
+
+        if [ ! -f /data/osmosis/state.txt ]; then
+            gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
+        fi
+        eval `grep sequenceNumber= /data/osmosis/state.txt`
+        oldsequenceNumber="$sequenceNumber"
+        count=0
+        cd /data/osmosis
+        gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
+            --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 5"; exit 5; }
+        eval `grep sequenceNumber= state.txt`
+        until [ "$oldsequenceNumber" == "$sequenceNumber" -o "$count" -gt 30 ]; do
+            let count=count+1
+            gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
+                --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
+                --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
+                --hstore --hstore-add-index changes.osc.gz || { echo "osm2pgsql error applying changes to database, exit 3"; exit 3; }
+            oldsequenceNumber="$sequenceNumber"
+            gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
+                                --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
+            eval `grep sequenceNumber= state.txt`
+            if [ "$oldsequenceNumber" == "$sequenceNumber" ]; then
+                break
+            fi
+            gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
+                            --write-pbf file="$OSM_PBF" && \
+                mv "$OSM_PBF" /data/"$OSM_PBF" || { echo "Error applying changes, exit 17"; exit 17; }
+            sleep 10
+        done
+        rm -f /data/renderd-updatedb.lock
+        sleep 86400
+    done
     exit 0
 fi
 
@@ -149,7 +166,7 @@ if [ "$1" == "renderd-initdb" ]; then
     rm -f /data/renderd-initdb.ready
 
     if [ -f /data/renderd-initdb.init ]; then
-        echo "Interrupted renderd-initdb detected, rerunning reinitdb"
+        echo "Interrupted $1 detected, rerunning $1"
         REDOWNLOAD=1
         eval `cat /data/renderd-initdb.init`
         reinitcount=$(( $reinitcount + 1 ))
@@ -224,7 +241,6 @@ EOF
     fi
 
     rm -f /data/renderd-initdb.init
-
     gosu osm touch /data/renderd-initdb.ready
     exit 0
 fi
