@@ -48,6 +48,26 @@ function wait_for_server () {
     done
 }
 
+shapefiles_dir () {
+    case "$1" in
+    create) echo "Creating shapefiles dir"
+        ( cd /usr/local/share/openstreetmap-carto && \
+            rm -rf data && \
+            gosu osm mkdir -p /data/shapefiles/data && \
+            ln -sf /data/shapefiles/data
+        ) || return 1
+    ;;
+    delete) echo "Deleting shapefiles dir"
+        rm -rf /data/shapefiles/data
+        gosu osm mkdir -p /data/shapefiles/data
+    ;;
+    *) echo "$0 [create|delete]"
+        return 2
+    ;;
+    esac
+    return 0
+}
+
 if [ "$1" == "renderd-reinitdb" ]; then
     echo "$1" called, reinitializing database
     REINITDB=1 exec $0 renderd-initdb
@@ -123,37 +143,25 @@ if [ "$1" == "renderd-updatedb" ]; then
     exit 0
 fi
 
-shapefiles_dir () {
-    case "$1" in
-    create) echo "Creating shapefiles dir"
-        ( cd /usr/local/share/openstreetmap-carto && \
-            rm -rf data && \
-            gosu osm mkdir -p /data/shapefiles/data && \
-            ln -sf /data/shapefiles/data
-        ) || return 1
-    ;;
-    delete) echo "Deleting shapefiles dir"
-        rm -rf /data/shapefiles/data
-        gosu osm mkdir -p /data/shapefiles/data
-    ;;
-    *) echo "$0 [create|delete]"
-        return 2
-    ;;
-    esac
-    return 0
-}
-
 if [ "$1" == "renderd-initdb" ]; then
     echo "$1" called
-    shift
+
+    rm -f /data/renderd-initdb.ready
 
     if [ -f /data/renderd-initdb.init ]; then
         echo "Interrupted renderd-initdb detected, rerunning reinitdb"
         REDOWNLOAD=1
+        eval `cat /data/renderd-initdb.init`
+        reinitcount=$(( $reinitcount + 1 ))
+        if [ "$reinitcount" > 2 ]; then
+            echo "$1 has failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
+            sleep $(( $reinitcount * 3600 ))
+        fi
+        echo "reinitcount=$reinitcount" > /data/renderd-initdb.init
+    else
+        echo "reinitcount=0" > /data/renderd-initdb.init
+        eval `cat /data/renderd-initdb.init`
     fi
-
-    rm -f /data/renderd-initdb.ready
-    gosu osm touch /data/renderd-initdb.init
 
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
         echo "downloading $OSM_PBF_URL"

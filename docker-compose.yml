@@ -14,9 +14,11 @@ services:
       - /run
       - /tmp
 
+# On a failure, initdb will be restarted, on 4th failure it will sleep for 1 hour, if it fails again, it will
+# sleep for 2 hours, then 3 hours, etc. When it completes successfully it will exit 0 and won't be restarted automatically
   initdb:
     image: hammermc/renderd-docker
-    restart: "no"
+    restart: on-failure
     depends_on:
       - postgres
     env_file:
