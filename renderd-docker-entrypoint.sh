@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -8,7 +8,7 @@ if [ -f /usr/local/etc/osm-config.sh ]; then
     . /usr/local/etc/osm-config.sh
 fi
 
-if [ "$1" == "postgres" ]; then
+if [ "$1" = "postgres" ]; then
     exec docker-entrypoint.sh "$@"
 fi
 
@@ -30,23 +30,21 @@ cd /usr/local/share/openstreetmap-carto && \
 
 cd /
 
-function wait_for_server () {
+wait_for_server () {
     server_host=$1
     server_port=$2
-    sleep_seconds=5
+    : ${sleep_seconds:=5}
 
     while true; do
         echo -n "Checking $server_host $server_port status... "
 
-        nc -z "$server_host" "$server_port"
-
-        if [ "$?" -eq 0 ]; then
-            echo "$server_host is running and ready to process requests."
-            break
-        fi
-
-        echo "$server_host is warming up. Trying again in $sleep_seconds seconds..."
-        sleep $sleep_seconds
+        nc -z "$server_host" "$server_port" || {
+            echo "$server_host is warming up. Trying again in $sleep_seconds seconds..."
+            sleep "$sleep_seconds"
+            continue
+        }
+        echo "$server_host is running and ready to process requests."
+        return 0
     done
 }
 
@@ -70,22 +68,22 @@ shapefiles_dir () {
     return 0
 }
 
-if [ "$1" == "renderd-reinitdb" ]; then
+if [ "$1" = "renderd-reinitdb" ]; then
     echo "$1" called, reinitializing database
     REINITDB=1 exec $0 renderd-initdb
 fi
 
-if [ "$1" == "renderd-reprocess" ]; then
+if [ "$1" = "renderd-reprocess" ]; then
     echo "$1" called, reprocessing database
     REPROCESS=1 exec $0 renderd-initdb
 fi
 
-if [ "$1" == "renderd-redownload" ]; then
+if [ "$1" = "renderd-redownload" ]; then
     echo "$1" called, redownloading "$OSM_PBF_URL"
     REDOWNLOAD=1 exec $0 renderd-initdb
 fi
 
-if [ "$1" == "renderd-updatedb" ]; then
+if [ "$1" = "renderd-updatedb" ]; then
     echo "$1" called
 
     if [ -z "$OSM_PBF_UPDATE_URL" ]; then
@@ -94,18 +92,18 @@ if [ "$1" == "renderd-updatedb" ]; then
     fi
 
     sleep 5
-    until [ ! -f /data/renderd-initdb.init -a -f /data/renderd-initdb.ready ]; do
-        echo "$1 waiting for init to finish"
+    until [ ! -f /data/renderd-initdb.lock ]; do
+        echo "$1 waiting for renderd-initdb to finish"
         sleep 30
     done
 
     while :; do
         if [ -f /data/renderd-updatedb.lock ]; then
             echo "Interrupted $1 detected, rerunning $1"
-            eval `cat /data/renderd-updatedb.lock`
+            eval `grep "reupdatecount=[0-9]+" /data/renderd-updatedb.lock`
             reupdatecount=$(( $reupdatecount + 1 ))
-            if [ "$reupdatecount" > 2 ]; then
-                if [ "$reupdatecount" > 24 ]; then
+            if [ "$reupdatecount" -gt 2 ]; then
+                if [ "$reupdatecount" -gt 24 ]; then
                     reupdatecount=24
                 fi
                 echo "$1 has failed $reupdatecount times before, sleeping for $(( $reupdatecount * 3600 )) seconds"
@@ -114,7 +112,7 @@ if [ "$1" == "renderd-updatedb" ]; then
             echo "reupdatecount=$reupdatecount" > /data/renderd-updatedb.lock
         else
             echo "reupdatecount=0" > /data/renderd-updatedb.lock
-            eval `cat /data/renderd-updatedb.lock`
+            eval `grep "reupdatecount=[0-9]+" /data/renderd-updatedb.lock`
         fi
 
         if [ ! -f /data/osmosis/configuration.txt ]; then
@@ -129,15 +127,16 @@ if [ "$1" == "renderd-updatedb" ]; then
         if [ ! -f /data/osmosis/state.txt ]; then
             gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
         fi
-        eval `grep sequenceNumber= /data/osmosis/state.txt`
+        eval `grep "sequenceNumber=[0-9]\+" /data/osmosis/state.txt`
         oldsequenceNumber="$sequenceNumber"
         count=0
         cd /data/osmosis
         gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
             --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 5"; exit 5; }
-        eval `grep sequenceNumber= state.txt`
-        until [ "$oldsequenceNumber" == "$sequenceNumber" -o "$count" -gt 30 ]; do
-            let count=count+1
+        eval `grep "sequenceNumber=[0-9]\+" state.txt`
+
+        until [ "$oldsequenceNumber" = "$sequenceNumber" -o "$count" -gt 30 ]; do
+            count=$(( $count + 1 ))
             gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
                 --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
                 --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
@@ -145,8 +144,8 @@ if [ "$1" == "renderd-updatedb" ]; then
             oldsequenceNumber="$sequenceNumber"
             gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
                                 --write-xml-change changes.osc.gz || { echo "Error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
-            eval `grep sequenceNumber= state.txt`
-            if [ "$oldsequenceNumber" == "$sequenceNumber" ]; then
+            eval `grep "sequenceNumber=[0-9]\+" state.txt`
+            if [ "$oldsequenceNumber" = "$sequenceNumber" ]; then
                 break
             fi
             gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
@@ -160,24 +159,22 @@ if [ "$1" == "renderd-updatedb" ]; then
     exit 0
 fi
 
-if [ "$1" == "renderd-initdb" ]; then
+if [ "$1" = "renderd-initdb" ]; then
     echo "$1" called
 
-    rm -f /data/renderd-initdb.ready
-
-    if [ -f /data/renderd-initdb.init ]; then
+    if [ -f /data/renderd-initdb.lock ]; then
         echo "Interrupted $1 detected, rerunning $1"
         REDOWNLOAD=1
-        eval `cat /data/renderd-initdb.init`
+        eval `grep "reinitcount=[0-9]+" /data/renderd-initdb.lock`
         reinitcount=$(( $reinitcount + 1 ))
-        if [ "$reinitcount" > 2 ]; then
+        if [ "$reinitcount" -gt 2 ]; then
             echo "$1 has failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
             sleep $(( $reinitcount * 3600 ))
         fi
-        echo "reinitcount=$reinitcount" > /data/renderd-initdb.init
+        echo "reinitcount=$reinitcount" > /data/renderd-initdb.lock
     else
-        echo "reinitcount=0" > /data/renderd-initdb.init
-        eval `cat /data/renderd-initdb.init`
+        echo "reinitcount=0" > /data/renderd-initdb.lock
+        eval `grep "reinitcount=[0-9]+" /data/renderd-initdb.lock`
     fi
 
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
@@ -236,16 +233,15 @@ EOF
         gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -f /usr/local/share/openstreetmap-carto/indexes.sql
         echo "CREATE INDEX planet_osm_line_index_1 ON planet_osm_line USING GIST (way);" | \
             gosu osm psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
-        gosu osm mv -f /data/osm.xml /data/osm.xml.old
+        rm -f /data/osm.xml
         echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
     fi
 
-    rm -f /data/renderd-initdb.init
-    gosu osm touch /data/renderd-initdb.ready
+    rm -f /data/renderd-initdb.lock
     exit 0
 fi
 
-if [ "$1" == "renderd-apache2" ]; then
+if [ "$1" = "renderd-apache2" ]; then
     shift
     wait_for_server renderd 7653
     cp /data/osm.xml /usr/local/share/openstreetmap-carto/
@@ -263,10 +259,10 @@ if [ "$1" == "renderd-apache2" ]; then
 fi
 
 
-if [ "$1" == "renderd" ]; then
+if [ "$1" = "renderd" ]; then
     shift
     sleep 5
-    until [ -f /data/renderd-initdb.ready ]; do
+    until [ ! -f /data/renderd-initdb.lock ]; do
         echo "Waiting for renderd-initdb"
         sleep 30
     done
@@ -289,7 +285,7 @@ if [ "$1" == "renderd" ]; then
 "); modif=1 } {print}' > project-modified.mml
         sed -i -e "s/dbname:.*/dbname: \"$POSTGRES_DB\"/" \
             project-modified.mml
-        carto project-modified.mml > /data/osm.xml ) || { echo "error generating carto stylesheet, exit 15"; exit 15; }
+        gosu osm carto project-modified.mml > /data/osm.xml ) || { echo "error generating carto stylesheet, exit 15"; exit 15; }
     fi
 
     cp /data/osm.xml /usr/local/share/openstreetmap-carto
