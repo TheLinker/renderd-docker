@@ -100,7 +100,7 @@ if [ "$1" = "renderd-updatedb" ]; then
     while :; do
         if [ -f /data/renderd-updatedb.lock ]; then
             echo "Interrupted $1 detected, rerunning $1"
-            eval `grep "reupdatecount=[0-9]+" /data/renderd-updatedb.lock`
+            eval `grep "reupdatecount=[0-9]\+" /data/renderd-updatedb.lock`
             reupdatecount=$(( $reupdatecount + 1 ))
             if [ "$reupdatecount" -gt 2 ]; then
                 if [ "$reupdatecount" -gt 24 ]; then
@@ -112,7 +112,7 @@ if [ "$1" = "renderd-updatedb" ]; then
             echo "reupdatecount=$reupdatecount" > /data/renderd-updatedb.lock
         else
             echo "reupdatecount=0" > /data/renderd-updatedb.lock
-            eval `grep "reupdatecount=[0-9]+" /data/renderd-updatedb.lock`
+            eval `grep "reupdatecount=[0-9]\+" /data/renderd-updatedb.lock`
         fi
 
         if [ ! -f /data/osmosis/configuration.txt ]; then
@@ -165,7 +165,7 @@ if [ "$1" = "renderd-initdb" ]; then
     if [ -f /data/renderd-initdb.lock ]; then
         echo "Interrupted $1 detected, rerunning $1"
         REDOWNLOAD=1
-        eval `grep "reinitcount=[0-9]+" /data/renderd-initdb.lock`
+        eval `grep "reinitcount=[0-9]\+" /data/renderd-initdb.lock`
         reinitcount=$(( $reinitcount + 1 ))
         if [ "$reinitcount" -gt 2 ]; then
             echo "$1 has failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
@@ -174,7 +174,7 @@ if [ "$1" = "renderd-initdb" ]; then
         echo "reinitcount=$reinitcount" > /data/renderd-initdb.lock
     else
         echo "reinitcount=0" > /data/renderd-initdb.lock
-        eval `grep "reinitcount=[0-9]+" /data/renderd-initdb.lock`
+        eval `grep "reinitcount=[0-9]\+" /data/renderd-initdb.lock`
     fi
 
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
