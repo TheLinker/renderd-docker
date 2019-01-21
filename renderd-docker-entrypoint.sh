@@ -205,13 +205,13 @@ if [ "$1" = "renderd-initdb" ]; then
             }
     fi
 
-    until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 &> /dev/null ; do
+    until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 > /dev/null 2> /dev/null; do
         echo "Waiting for postgres"
         sleep 5
     done
 
-    if [ "$REINITDB" ] || ! $(echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" &> /dev/null) ; then
-        gosu osm dropdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
+    if [ "$REINITDB" ] || ! $(echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" > /dev/null 2> /dev/null) ; then
+        gosu osm dropdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" || true
         gosu osm createdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" && (
             cat << EOF | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
                 CREATE EXTENSION IF NOT EXISTS postgis;
