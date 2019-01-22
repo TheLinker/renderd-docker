@@ -38,7 +38,7 @@ services:
 
   updatedb:
     image: hammermc/renderd-docker
-    restart: "no"
+    restart: unless-stopped
     depends_on:
       - postgres
       - initdb
