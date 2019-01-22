@@ -188,7 +188,9 @@ if [ "$1" = "renderd-initdb" ]; then
             echo "error downloading ${OSM_PBF_URL}.md5, exit 9"; exit 9; }
         ( cd /data && \
             gosu osm md5sum -c "$OSM_PBF".md5 ) || {
-                rm -f "$OSM_PBF".md5 "$OSM_PBF"; echo "md5sum mismatch on /data/$OSM_PBF, exit 4"; exit 4
+                rm -f /data/"$OSM_PBF".md5 /data/"$OSM_PBF"
+                echo "md5sum mismatch on /data/$OSM_PBF, exit 4"
+                exit 4
             }
         REINITDB=1
     fi
