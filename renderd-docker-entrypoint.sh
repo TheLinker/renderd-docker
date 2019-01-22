@@ -212,7 +212,10 @@ if [ "$1" = "renderd-initdb" ]; then
         sleep 5
     done
 
-    if [ "$REINITDB" ] || ! $(echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" > /dev/null 2> /dev/null) ; then
+    if [ "$REINITDB" ] || ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" | \
+            gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" | grep -q 'tables already created'); then
+        echo "$1 reiniting database"
+        gosu osm createuser osm -s -h "$POSTGRES_HOST" -U "$POSTGRES_USER" || true
         gosu osm dropdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" || true
         gosu osm createdb -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" && (
             cat << EOF | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB"
