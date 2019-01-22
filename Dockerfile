@@ -49,8 +49,8 @@ RUN apt update && \
 RUN pip3 install osmium
 RUN pip install osmium
 
-ENV MAPNIK_VERSION v3.0.21
-RUN	git clone --depth 1 --branch $MAPNIK_VERSION http://github.com/mapnik/mapnik
+ENV MAPNIK_VERSION v3.0.22
+RUN	git clone --depth 1 --branch $MAPNIK_VERSION --single-branch http://github.com/mapnik/mapnik
 RUN cd /mapnik && \
     git submodule update --init
 RUN cd /mapnik && \
