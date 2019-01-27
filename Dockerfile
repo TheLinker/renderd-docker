@@ -129,6 +129,7 @@ RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
     ldconfig
 
 COPY renderd-docker-entrypoint.sh /usr/local/bin/
+COPY osm-config.sh /usr/local/etc/
 
 VOLUME /data
 
