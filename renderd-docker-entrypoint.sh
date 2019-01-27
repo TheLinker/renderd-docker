@@ -30,7 +30,7 @@ cd /
 wait_for_server () {
     server_host=$1
     server_port=$2
-    : ${WFS_SLEEP:=15}
+    : ${WFS_SLEEP:=30}
     while true; do
         log -n "Checking $server_host $server_port status... "
 
@@ -62,6 +62,7 @@ shapefiles_dir () {
     delete) log "deleting shapefiles dir"
         rm -rf /data/shapefiles/data
         gosu osm mkdir -p /data/shapefiles/data
+        return 0
     ;;
     *) echo "$0 [create|delete]"
         return 2

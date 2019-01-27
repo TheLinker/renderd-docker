@@ -10,12 +10,13 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./osm-config.sh:/usr/local/etc/osm-config.sh
     tmpfs:
       - /run
       - /tmp
 
-# On a failure, initdb will be restarted, on 4th failure it will sleep for 1 hour, if it fails again, it will
-# sleep for 2 hours, then 3 hours, etc. When it completes successfully it will exit 0 and won't be restarted automatically
+# On a failure, initdb will be restarted, on 4th failure it will sleep for 3 hours, if it fails again, it will
+# sleep for 4 hours, then 5 hours, etc. When it completes successfully it will exit 0 and won't be restarted automatically
   initdb:
     image: hammermc/renderd-docker
     restart: on-failure
