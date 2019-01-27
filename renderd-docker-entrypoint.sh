@@ -223,7 +223,7 @@ if [ "$1" = "renderd-initdb" ]; then
 
     until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 > /dev/null 2> /dev/null; do
         log "$1 Waiting for postgres"
-        sleep "$WPS_SLEEP"
+        sleep "$WFS_SLEEP"
     done
 
     if [ "$REINITDB" ] || ! $(echo "SELECT 'tables already created' FROM pg_catalog.pg_tables where tablename = 'planet_osm_nodes'" | \
