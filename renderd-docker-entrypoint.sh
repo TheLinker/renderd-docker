@@ -71,6 +71,33 @@ shapefiles_dir () {
     return 0
 }
 
+check_lockfile () {
+    if [ -z "$1" ]; then
+        log "check_lockfile <lockfile> [log prefix]"
+        return 0
+    fi
+    LOCKFILE="$1"
+
+    if [ -f "$LOCKFILE" ]; then
+        log "$2 $LOCKFILE found, previous run didn't finish successfully, rerunning"
+        eval `grep "restartcount=[0-9]\+" "$LOCKFILE"`
+        restartcount=$(( $restartcount + 1 ))
+        if [ "$restartcount" -gt 2 ]; then
+            if [ "$restartcount" -gt 24 ]; then
+                restartcount=24
+            fi
+            log "$2 has failed $restartcount times before, sleeping for $(( $restartcount * 3600 )) seconds"
+            sleep $(( $restartcount * 3600 ))
+        fi
+        echo "restartcount=$restartcount" > "$LOCKFILE"
+        return 1
+    fi
+
+    echo "restartcount=0" > "$LOCKFILE"
+    eval `grep "restartcount=[0-9]\+" "$LOCKFILE"`
+    return 0
+}
+
 if [ "$1" = "renderd-reinitdb" ]; then
     log "$1 called, reinitializing database"
     REINITDB=1 exec $0 renderd-initdb
@@ -102,23 +129,9 @@ if [ "$1" = "renderd-updatedb" ]; then
         sleep "$WFS_SLEEP"
     done
 
-    while :; do
-        if [ -f /data/renderd-updatedb.lock ]; then
-          log "$1 detected previous run exited with errors, rerunning"
-            eval `grep "reupdatecount=[0-9]\+" /data/renderd-updatedb.lock`
-            reupdatecount=$(( $reupdatecount + 1 ))
-            if [ "$reupdatecount" -gt 2 ]; then
-                if [ "$reupdatecount" -gt 24 ]; then
-                    reupdatecount=24
-                fi
-                log "$1 has failed $reupdatecount times before, sleeping for $(( $reupdatecount * 3600 )) seconds"
-                sleep $(( $reupdatecount * 3600 ))
-            fi
-            echo "reupdatecount=$reupdatecount" > /data/renderd-updatedb.lock
-        else
-            echo "reupdatecount=0" > /data/renderd-updatedb.lock
-            eval `grep "reupdatecount=[0-9]\+" /data/renderd-updatedb.lock`
-        fi
+    while true; do
+        # If it fails 3 times sleep for 3 hours to rate limit how often we try to download from the upstream server
+        check_lockfile /data/renderd-updatedb.lock "$1" || true
 
         if [ ! -f /data/osmosis/configuration.txt ]; then
             log "$1 initialising replication interval"
@@ -169,20 +182,7 @@ fi
 if [ "$1" = "renderd-initdb" ]; then
     log "$1 called"
 
-    if [ -f /data/renderd-initdb.lock ]; then
-        log "$1 detected previous run exited with errors, rerunning"
-        REDOWNLOAD=1
-        eval `grep "reinitcount=[0-9]\+" /data/renderd-initdb.lock`
-        reinitcount=$(( $reinitcount + 1 ))
-        if [ "$reinitcount" -gt 2 ]; then
-            log "$1 has failed $reinitcount times before, sleeping for $(( $reinitcount * 3600 )) seconds"
-            sleep $(( $reinitcount * 3600 ))
-        fi
-        echo "reinitcount=$reinitcount" > /data/renderd-initdb.lock
-    else
-        echo "reinitcount=0" > /data/renderd-initdb.lock
-        eval `grep "reinitcount=[0-9]\+" /data/renderd-initdb.lock`
-    fi
+    check_lockfile /data/renderd-initdb.lock "$1" || REDOWNLOAD=1
 
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
         log "$1 downloading $OSM_PBF_URL"
