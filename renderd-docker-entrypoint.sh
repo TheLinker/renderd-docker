@@ -173,8 +173,12 @@ if [ "$1" = "renderd-updatedb" ]; then
                 mv "$OSM_PBF" /data/"$OSM_PBF" || { log "$1 error applying changes, exit 17"; exit 17; }
             sleep 10
         done
+
         rm -f /data/renderd-updatedb.lock
-        sleep 86400
+        : ${RENDERD_UPDATE_SLEEP:=86400}
+        log "$1 finished, sleeping for $RENDERD_UPDATE_SLEEP seconds"
+        sleep "$RENDERD_UPDATE_SLEEP"
+
     done
     exit 0
 fi
