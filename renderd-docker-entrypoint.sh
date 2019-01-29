@@ -45,7 +45,7 @@ wait_for_server () {
             continue
         }
 
-        log "$server_host is running and ready to process requests"
+        echo "$server_host is running and ready to process requests"
         return 0
     done
 }
