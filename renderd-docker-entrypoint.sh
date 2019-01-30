@@ -151,12 +151,15 @@ if [ "$1" = "renderd-updatedb" ]; then
         oldsequenceNumber="$sequenceNumber"
         count=0
         cd /data/osmosis
+        log "checking for new change file and downloading"
         gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
             --write-xml-change changes.osc.gz || { log "$1 error downloading changes from $OSM_PBF_UPDATE_URL, exit 5"; exit 5; }
         eval `grep "sequenceNumber=[0-9]\+" state.txt`
 
         until [ "$oldsequenceNumber" = "$sequenceNumber" -o "$count" -gt 30 ]; do
+            log "processing sequence number $sequenceNumber"
             count=$(( $count + 1 ))
+            log "updating database"
             gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
                 --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
                 --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
@@ -165,12 +168,13 @@ if [ "$1" = "renderd-updatedb" ]; then
             gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
                                 --write-xml-change changes.osc.gz || { log "$1 error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
             eval `grep "sequenceNumber=[0-9]\+" state.txt`
-            if [ "$oldsequenceNumber" = "$sequenceNumber" ]; then
-                break
-            fi
+            log "updating /data/$OSM_PBF"
             gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
                             --write-pbf file="$OSM_PBF" && \
                 mv "$OSM_PBF" /data/"$OSM_PBF" || { log "$1 error applying changes, exit 17"; exit 17; }
+            if [ "$oldsequenceNumber" = "$sequenceNumber" ]; then
+                break
+            fi
             sleep 10
         done
 
