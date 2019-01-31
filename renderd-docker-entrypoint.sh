@@ -164,11 +164,14 @@ if [ "$1" = "renderd-updatedb" ]; then
                 --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
                 --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
                 --hstore --hstore-add-index changes.osc.gz || { log "$1 osm2pgsql error applying changes to database, exit 3"; exit 3; }
+            log "updating /data/$OSM_PBF"
+            gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
+                            --write-pbf file="$OSM_PBF" && \
+                mv "$OSM_PBF" /data/"$OSM_PBF" || { log "$1 error applying changes, exit 17"; exit 17; }
             oldsequenceNumber="$sequenceNumber"
             gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
                                 --write-xml-change changes.osc.gz || { log "$1 error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
             eval `grep "sequenceNumber=[0-9]\+" state.txt`
-            log "updating /data/$OSM_PBF"
             gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
                             --write-pbf file="$OSM_PBF" && \
                 mv "$OSM_PBF" /data/"$OSM_PBF" || { log "$1 error applying changes, exit 17"; exit 17; }
