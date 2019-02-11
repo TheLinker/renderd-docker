@@ -63,7 +63,7 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
     apt install -y nodejs && \
     npm --unsafe-perm -g install millstone carto mapnik
 
-RUN git clone --depth 1 https://github.com/openstreetmap/mod_tile/
+RUN git clone --depth 1 --single-branch https://github.com/openstreetmap/mod_tile/
 RUN cd mod_tile && \
     ./autogen.sh && \
     ./configure && \
@@ -77,8 +77,8 @@ RUN cd mod_tile && \
 
 RUN mkdir -p /usr/local/share/ && \
     cd /usr/local/share && \
-    git clone --depth 1 http://github.com/mapbox/osm-bright.git && \
-    git clone --depth 1 https://github.com/gravitystorm/openstreetmap-carto.git
+    git clone --depth 1 --single-branch http://github.com/mapbox/osm-bright.git && \
+    git clone --depth 1 --single-branch https://github.com/gravitystorm/openstreetmap-carto.git
 
 FROM postgres:10 as runstage
 COPY --from=buildstage /usr/local/ /usr/local/
