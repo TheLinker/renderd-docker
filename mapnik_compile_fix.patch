@@ -1,0 +1,32 @@
+diff -Naur mod_tile-9999.old/src/gen_tile_test.cpp mod_tile-9999/src/gen_tile_test.cpp
+--- mod_tile-9999.old/src/gen_tile_test.cpp	2017-07-02 15:44:05.640754137 +0200
++++ mod_tile-9999/src/gen_tile_test.cpp	2017-07-02 15:52:49.516055749 +0200
+@@ -48,17 +48,20 @@
+ #endif
+ 
+ #include <mapnik/version.hpp>
+-#if MAPNIK_VERSION < 200000
+-#include <mapnik/envelope.hpp>
+-#define image_32 Image32
+-#define image_data_32 ImageData32
+-#define box2d Envelope
+-#define zoom_to_box zoomToBox
++#if MAPNIK_VERSION >= 300100
++   #include <mapnik/geometry/box2d.hpp>
+ #else
+-#include <mapnik/box2d.hpp>
++   #if MAPNIK_VERSION < 200000
++      #include <mapnik/envelope.hpp>
++      #define image_32 Image32
++      #define image_data_32 ImageData32
++      #define box2d Envelope
++      #define zoom_to_box zoomToBox
++   #else
++     #include <mapnik/box2d.hpp>
++   #endif
+ #endif
+ 
+-
+ #define NO_QUEUE_REQUESTS 9
+ #define NO_TEST_REPEATS 100
+ #define NO_THREADS 100

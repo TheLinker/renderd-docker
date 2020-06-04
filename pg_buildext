@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ "$1" = "supported-versions" ]; then
+        echo 12
+else
+        exec /usr/bin/pg_buildext "$@"
+fi

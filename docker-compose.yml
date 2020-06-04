@@ -1,102 +1,109 @@
 version: '3.7'
 
 services:
-  postgres:
-    image: hammermc/renderd-docker
-    restart: always
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
-    env_file:
-      - osm.env
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./osm-config.sh:/usr/local/etc/osm-config.sh
-    tmpfs:
-      - /run
-      - /tmp
-
-# On a failure, initdb will be restarted, on 4th failure it will sleep for 3 hours, if it fails again, it will
-# sleep for 4 hours, then 5 hours, etc. When it completes successfully it will exit 0 and won't be restarted automatically
-  initdb:
-    image: hammermc/renderd-docker
-    restart: on-failure
-    depends_on:
-      - postgres
-    env_file:
-      - osm.env
-    environment:
-      - REDOWNLOAD
-      - REINITDB
-      - http_proxy
-      - https_proxy
-    command: renderd-initdb
-    volumes:
-      - maps-data:/data
-      - ./osm-config.sh:/usr/local/etc/osm-config.sh
-    tmpfs:
-      - /run
-      - /tmp
-
-  updatedb:
-    image: hammermc/renderd-docker
-    restart: unless-stopped
-    depends_on:
-      - postgres
-      - initdb
-    env_file:
-      - osm.env
-    environment:
-      - REDOWNLOAD
-      - REINITDB
-      - http_proxy
-      - https_proxy
-    command: renderd-updatedb
-    volumes:
-      - maps-data:/data
-      - ./osm-config.sh:/usr/local/etc/osm-config.sh
-    tmpfs:
-      - /run
-      - /tmp
-
   renderd:
-    image: hammermc/renderd-docker
-    restart: always
-    env_file:
-      - osm.env
-    depends_on:
-      - postgres
-      - initdb
-      - updatedb
-    # you can run renderd with custom options with (eg)
-    # command: renderd -f --config=/etc/renderd.conf
-    command: renderd
-    volumes:
-      - maps-data:/data
-      - ./renderd/renderd.conf:/etc/renderd.conf
-      - ./osm-config.sh:/usr/local/etc/osm-config.sh
-    tmpfs:
-      - /run
-      - /tmp
+    image: hammermc/renderd
+    build:
+      context: .
+      args:
+        http_proxy: http://172.29.9.7:8081
 
-  apache:
-    image: hammermc/renderd-docker
-    restart: always
-    depends_on:
-      - renderd
-    # you can run apache2 with custom options with (eg)
-    # command: renderd-apache2 apache2 -DFOREGROUND -f /etc/apache2/apache2.conf
-    command: renderd-apache2
-    volumes:
-      - maps-data:/data
-      - ./renderd/renderd.conf:/etc/renderd.conf
-      - ./apache/tileserver_site.conf:/etc/apache2/sites-available/tileserver_site.conf
-      - ./osm-config.sh:/usr/local/etc/osm-config.sh
-    tmpfs:
-      - /run
-      - /tmp
-    ports:
-      - 80:80
-
-volumes:
-  maps-data:
-  postgres-data:
+#  postgres:
+#    image: hammermc/renderd
+#    restart: always
+#    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+#    env_file:
+#      - osm.env
+#    volumes:
+#      - postgres-data:/var/lib/postgresql/data
+#      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+#      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+#    tmpfs:
+#      - /run
+#      - /tmp
+##
+### On a failure, initdb will be restarted, on 4th failure it will sleep for 3 hours, if it fails again, it will
+### sleep for 4 hours, then 5 hours, etc. When it completes successfully it will exit 0 and won't be restarted automatically
+#  initdb:
+#    image: hammermc/renderd
+#    restart: on-failure
+#    depends_on:
+#      - postgres
+#    env_file:
+#      - osm.env
+#    environment:
+#      - REDOWNLOAD
+#      - REINITDB
+#      - http_proxy
+#      - https_proxy
+#    command: renderd-initdb
+#    volumes:
+#      - maps-data:/data
+#      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+#    tmpfs:
+#      - /run
+#      - /tmp
+#
+#  updatedb:
+#    image: hammermc/renderd
+#    restart: unless-stopped
+#    depends_on:
+#      - postgres
+#      - initdb
+#    env_file:
+#      - osm.env
+#    environment:
+#      - REDOWNLOAD
+#      - REINITDB
+#      - http_proxy
+#      - https_proxy
+#    command: renderd-updatedb
+#    volumes:
+#      - maps-data:/data
+#      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+#    tmpfs:
+#      - /run
+#      - /tmp
+#
+#  renderd:
+#    image: hammermc/renderd
+#    restart: always
+#    env_file:
+#      - osm.env
+#    depends_on:
+#      - postgres
+#      - initdb
+#      - updatedb
+#    # you can run renderd with custom options with (eg)
+#    # command: renderd -f --config=/etc/renderd.conf
+#    command: renderd
+#    volumes:
+#      - maps-data:/data
+#      - ./renderd/renderd.conf:/etc/renderd.conf
+#      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+#    tmpfs:
+#      - /run
+#      - /tmp
+#
+#  apache:
+#    image: hammermc/renderd
+#    restart: always
+#    depends_on:
+#      - renderd
+#    # you can run apache2 with custom options with (eg)
+#    # command: renderd-apache2 apache2 -DFOREGROUND -f /etc/apache2/apache2.conf
+#    command: renderd-apache2
+#    volumes:
+#      - maps-data:/data
+#      - ./renderd/renderd.conf:/etc/renderd.conf
+#      - ./apache/tileserver_site.conf:/etc/apache2/sites-available/tileserver_site.conf
+#      - ./osm-config.sh:/usr/local/etc/osm-config.sh
+#    tmpfs:
+#      - /run
+#      - /tmp
+#    ports:
+#      - 83:80
+#
+#volumes:
+#  maps-data:
+#  postgres-data:
