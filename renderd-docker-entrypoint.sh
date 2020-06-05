@@ -9,7 +9,16 @@ if [ "$1" = "postgres" ]; then
     exec docker-entrypoint.sh "$@"
 fi
 
-chown osm: /data
+id osm > /dev/null 2>&1 && \
+  chown osm: /data
+
+# for backwards compatibility because the location of mapnik/input has changed to
+#  /usr/lib/mapnik/3.0/input from /usr/local/lib/mapnik/input
+if [ ! -d /usr/local/lib/mapnik ]; then
+  mkdir -p /usr/local/lib
+  cd /usr/local/lib
+  ln -s /usr/lib/mapnik/3.0 mapnik
+fi
 
 cd /var/lib && \
     rm -rf mod_tile && \
@@ -20,10 +29,6 @@ if [ ! -d /run/lock ]; then
     mkdir /run/lock
     chmod 1777 /run/lock
 fi
-
-cd /usr/local/share/openstreetmap-carto && \
-    rm -rf data && \
-    ln -sf /data/shapefiles/data
 
 cd /
 
@@ -98,6 +103,32 @@ check_lockfile () {
     return 0
 }
 
+download() {
+  URL="$1"
+  FILE="$2"
+  if [ -z "$URL" ]; then
+    log "$SUBCOMMAND download <url> [filename]"
+    return 1
+  fi
+  # this isn't super robust, if the url is http://blah.com FILE will be blah.com
+  # if the url is http://blah.com/file/data.bin FILE will be data.bin (which is what we want)
+  # it might be better to use curl -O but that adds complications with the curl arguments
+  if [ -z "$FILE" ]; then
+    FILE=$(echo "$URL" | sed 's#.*/##')
+    if [ -z "$FILE" ]; then
+      FILE="index.html"
+    fi
+  fi
+  cd "$DATA_DIR"
+  gosu osm flock "$FILE".lock curl --remote-time --location --retry 3 --time-cond "$FILE" \
+    --silent --show-error --output "$FILE" "$URL" || {
+    log "$SUBCOMMAND error downloading $URL"
+    rm -f "$FILE".lock
+    return 2
+  }
+  rm -f "$FILE".lock
+}
+
 if [ "$1" = "renderd-reinitdb" ]; then
     log "$1 called, reinitializing database"
     REINITDB=1 exec $0 renderd-initdb
@@ -120,6 +151,8 @@ if [ "$1" = "renderd-updatedb" ]; then
         log "$1 OSM_PBF_UPDATE_URL not set, exit 1"
         exit 1
     fi
+
+    shapefiles_dir create || exit 19
 
     # give renderd-initdb time to start and create lock file
     sleep 5
@@ -145,7 +178,7 @@ if [ "$1" = "renderd-updatedb" ]; then
 
         if [ ! -f /data/osmosis/state.txt ]; then
             log "$1 /data/osmosis/state.txt missing, redownloading, updates might be missing, you probably should redownload and reinitialise"
-            gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt
+            download "$OSM_PBF_UPDATE_URL"/state.txt /data/osmosis/state.txt
         fi
         eval `grep "sequenceNumber=[0-9]\+" /data/osmosis/state.txt`
         oldsequenceNumber="$sequenceNumber"
@@ -172,9 +205,6 @@ if [ "$1" = "renderd-updatedb" ]; then
             gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
                                 --write-xml-change changes.osc.gz || { log "$1 error downloading changes from $OSM_PBF_UPDATE_URL, exit 6"; exit 6; }
             eval `grep "sequenceNumber=[0-9]\+" state.txt`
-            gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
-                            --write-pbf file="$OSM_PBF" && \
-                mv "$OSM_PBF" /data/"$OSM_PBF" || { log "$1 error applying changes, exit 17"; exit 17; }
             if [ "$oldsequenceNumber" = "$sequenceNumber" ]; then
                 break
             fi
@@ -198,11 +228,11 @@ if [ "$1" = "renderd-initdb" ]; then
     if [ "$REDOWNLOAD" -o ! -f /data/"$OSM_PBF" -a "$OSM_PBF_URL" ]; then
         log "$1 downloading $OSM_PBF_URL"
         gosu osm mkdir -p /data/osmosis
-        gosu osm curl "$OSM_PBF_UPDATE_URL"/state.txt -o /data/osmosis/state.txt || {
+        download "$OSM_PBF_UPDATE_URL"/state.txt /data/osmosis/state.txt || {
             log "$1 error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"; exit 7; }
-        gosu osm curl -L -z /data/"$OSM_PBF" -o /data/"$OSM_PBF" "$OSM_PBF_URL" || {
+        download "$OSM_PBF_URL" || {
             log "$1 error downloading $OSM_PBF_URL, exit 8"; exit 8; }
-        gosu osm curl -L -o /data/"$OSM_PBF".md5 "$OSM_PBF_URL".md5 || {
+        download "$OSM_PBF_URL".md5 || {
             log "$1 error downloading ${OSM_PBF_URL}.md5, exit 9"; exit 9; }
         ( cd /data && \
             gosu osm md5sum -c "$OSM_PBF".md5 ) || {
@@ -214,16 +244,6 @@ if [ "$1" = "renderd-initdb" ]; then
     fi
 
     shapefiles_dir create || exit 16
-
-    if [ ! "$(ls /usr/local/share/openstreetmap-carto/data/)" -o "$REDOWNLOAD" ]; then
-        log "$1 downloading shapefiles"
-        ( cd /usr/local/share/openstreetmap-carto && \
-            gosu osm ./scripts/get-shapefiles.py ) || {
-                log "$1 error downloading shapefiles, exit 11"
-                shapefiles_dir delete
-                exit 11
-            }
-    fi
 
     until echo select 1 | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" template1 > /dev/null 2> /dev/null; do
         log "$1 Waiting for postgres"
@@ -260,6 +280,16 @@ EOF
         echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
     fi
 
+    if [ "$REDOWNLOAD" -o ! "$(ls /usr/local/share/openstreetmap-carto/data/)" ]; then
+        log "$1 downloading shapefiles"
+        ( cd /usr/local/share/openstreetmap-carto && \
+            gosu osm ./scripts/get-external-data.py -H "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" ) || {
+                log "$1 error downloading shapefiles, exit 11"
+                shapefiles_dir delete
+                exit 11
+            }
+    fi
+
     rm -f /data/renderd-initdb.lock
     exit 0
 fi
@@ -270,6 +300,7 @@ if [ "$1" = "renderd-apache2" ]; then
 
     wait_for_server renderd 7653
     cp /data/osm.xml /usr/local/share/openstreetmap-carto/
+    shapefiles_dir create || exit 20
 
     . /etc/apache2/envvars  && \
         mkdir -p "$APACHE_RUN_DIR" && \
@@ -300,7 +331,7 @@ if [ "$1" = "renderd" ]; then
         chown osm: /data/var/run/renderd
     fi
 
-    shapefiles_dir create
+    shapefiles_dir create || exit 21
 
     if [ "$REDOWNLOAD" -o "$REEXTRACT" -o "$REINITDB" -o ! -f /data/osm.xml ]; then
         log "$1 generating stylesheet"
