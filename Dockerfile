@@ -1,4 +1,4 @@
-FROM ubuntu:focal as buildstage
+FROM ubuntu:eoan as buildstage
 
 ENV BUMP 2020060101
 
@@ -33,7 +33,7 @@ RUN mkdir -p /usr/local/share && \
 
 # --------------------------------------------------------------------------------------------- #
 
-FROM ubuntu:focal as runstage
+FROM ubuntu:eoan as runstage
 
 COPY --from=buildstage /usr/local/ /usr/local/
 
@@ -57,7 +57,7 @@ RUN apt-get update && \
         osm2pgsql \
         osmium-tool \
         osmosis \
-        postgresql-client-12 \
+        postgresql-client \
         pyosmium \
         python3 \
         python3-pip \
