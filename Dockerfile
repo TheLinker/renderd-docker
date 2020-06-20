@@ -1,6 +1,6 @@
 FROM ubuntu:eoan as buildstage
 
-ENV BUMP 2020060101
+ENV BUMP 20200620.1
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
