@@ -59,6 +59,10 @@ shapefiles_dir () {
     case "$1" in
     create) log "creating shapefiles dir"
         ( cd /usr/local/share/openstreetmap-carto && \
+            gosu osm mkdir -p /data/shapefiles/data
+            if [ -d data ] && [ ! -h data ]; then
+              gosu osm cp -a data/* /data/shapefiles/data
+            fi
             rm -rf data && \
             gosu osm mkdir -p /data/shapefiles/data && \
             ln -sf /data/shapefiles/data
