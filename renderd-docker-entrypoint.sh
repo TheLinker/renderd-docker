@@ -274,8 +274,6 @@ EOF
         gosu osm osm2pgsql -G -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
             --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
             --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
-            --hstore --hstore-add-index \
-            --number-processes $NPROCS \
             /data/"$OSM_PBF" || { log "$1 error importing $OSM_PBF, exit 13"; exit 13; }
         gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" -f /usr/local/share/openstreetmap-carto/indexes.sql
         echo "CREATE INDEX planet_osm_line_index_1 ON planet_osm_line USING GIST (way);" | \
