@@ -1,4 +1,4 @@
-FROM ubuntu:eoan as buildstage
+FROM ubuntu:focal as buildstage
 
 ENV BUMP 20200620.1
 
@@ -33,7 +33,7 @@ RUN mkdir -p /usr/local/share && \
 
 # --------------------------------------------------------------------------------------------- #
 
-FROM ubuntu:eoan as runstage
+FROM ubuntu:focal as runstage
 
 COPY --from=buildstage /usr/local/ /usr/local/
 
@@ -93,7 +93,7 @@ ENV PG_MAJOR 12
 
 RUN set -ex; \
 	\
-    echo "deb http://apt.postgresql.org/pub/repos/apt/ eoan-pgdg main $PG_MAJOR" > /etc/apt/sources.list.d/pgdg.list; \
+    echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main $PG_MAJOR" > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-client-12; \
     rm -rf /var/lib/apt/lists/*
