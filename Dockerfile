@@ -103,8 +103,8 @@ RUN set -ex; \
     apt-get update; \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 	    build-essential \
-	    libpq5 \
 	    libpq-dev \
+	    libpq5 \
 	    python3-dev; \
 	python3 -m pip install wheel setuptools; \
 	python3 -m pip install osmium psycopg2 requests pyyaml; \
