@@ -250,17 +250,17 @@ if [ "$1" = "renderd-initdb" ]; then
     rm -f /data/REDOWNLOAD
     gosu osm mkdir -p /data/osmosis
     download "$OSM_PBF_UPDATE_URL"/state.txt /data/osmosis/state.txt || {
-      touch /data/REDOWNLOAD
+      touch /data/renderd-REDOWNLOAD
       log "$1 error downloading ${OSM_PBF_UPDATE_URL}/state.txt, exit 7"
       exit 7
     }
     download "$OSM_PBF_URL" || {
-      touch /data/REDOWNLOAD
+      touch /data/renderd-REDOWNLOAD
       log "$1 error downloading $OSM_PBF_URL, exit 8"
       exit 8
     }
     download "$OSM_PBF_URL".md5 || {
-      touch /data/REDOWNLOAD
+      touch /data/renderd-REDOWNLOAD
       log "$1 error downloading ${OSM_PBF_URL}.md5, exit 9"
       exit 9
     }
@@ -294,7 +294,7 @@ if [ "$1" = "renderd-initdb" ]; then
                 CREATE EXTENSION IF NOT EXISTS hstore;
 EOF
     ) || {
-      touch /data/REINITDB
+      touch /data/renderd-REINITDB
       log "$1 error creating database schema, exit 12"
       exit 12
     }
@@ -310,7 +310,7 @@ EOF
       --hstore --hstore-add-index \
       --number-processes $NPROCS \
       /data/"$OSM_PBF" || {
-      touch /data/REPROCESS
+      touch /data/renderd-REPROCESS
       log "$1 error importing $OSM_PBF, exit 13"
       exit 13
     }
