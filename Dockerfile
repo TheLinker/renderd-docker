@@ -1,13 +1,16 @@
 FROM ubuntu:focal as buildstage
-
 ENV BUMP 20200920.1
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
         apache2-dev \
+        autoconf \
         build-essential \
         ca-certificates \
         git \
+        libcairo2-dev \
+        libcurl4-gnutls-dev \
+        libiniparser-dev \
         libmapnik-dev \
         libmemcached-dev \
         librados-dev
@@ -20,8 +23,9 @@ RUN cd mod_tile && \
     make install && \
     make install-mod_tile && \
     ldconfig && \
-    cp debian/tileserver_site.conf /usr/local/etc && \
-    cp debian/tile.load /usr/local/etc && \
+    cp examples/config/renderd/renderd.conf.dist /usr/local/etc/renderd.conf && \
+    cp examples/config/apache2/renderd.conf.dist /usr/local/etc/apache_renderd.conf && \
+    cp examples/config/apache2/renderd-example-map.conf.dist /usr/local/etc/apache_renderd-example-map.conf && \
     cp /usr/lib/apache2/modules/mod_tile.so /usr/local/lib/mod_tile.so
 
 RUN mkdir -p /usr/local/share && \
@@ -51,6 +55,7 @@ RUN apt-get update && \
         gnupg \
         gosu \
         libgdal-grass \
+        libiniparser1 \
         libmapnik3.0 \
         libmemcached11 \
         librados2 \
@@ -116,17 +121,19 @@ RUN set -ex; \
     rm -rf /var/lib/apt/lists/*
 
 RUN mv /usr/local/lib/mod_tile.so /usr/lib/apache2/modules/mod_tile.so && \
-    mv /usr/local/etc/tile.load /etc/apache2/mods-available && \
-    mv /usr/local/etc/tileserver_site.conf /etc/apache2/sites-available && \
-    a2dissite 000-default && \
-    a2ensite tileserver_site && \
+    mv /usr/local/etc/apache_renderd-example-map.conf /etc/apache2/sites-available/renderd-example-map.conf && \
+    mv /usr/local/etc/apache_renderd.conf /etc/apache2/sites-available/renderd.conf && \
+    echo LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so > /etc/apache2/mods-available/tile.load && \
     a2enmod tile && \
+    a2dissite 000-default && \
+    a2ensite renderd && \
+    a2ensite renderd-example-map && \
     useradd -ms /bin/bash osm && \
     ldconfig
 
 RUN mkdir /docker-entrypoint-initdb.d
 
-RUN curl -sL https://deb.nodesource.com/setup_12.x | bash - && \
+RUN curl -sL https://deb.nodesource.com/setup_14.x | bash - && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs && \
     rm -rf /var/lib/apt/lists/*
