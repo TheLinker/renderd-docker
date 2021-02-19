@@ -384,6 +384,12 @@ if [ "$1" = "renderd-apache2" ]; then
     ln -sf /dev/stdout "$APACHE_LOG_DIR"/error.log &&
     ln -sf /dev/stdout "$APACHE_LOG_DIR"/access.log
 
+  mkdir -p /var/cache/renderd &&
+    cd /var/cache/renderd &&
+    ln -sf /data/var/lib/mod_tile tiles
+
+  cd /
+
   if [ "$#" -gt 0 ]; then
     exec "$@"
   fi
