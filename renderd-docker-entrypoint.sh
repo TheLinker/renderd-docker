@@ -188,6 +188,35 @@ if [ "$1" = "renderd-updatedb" ]; then
       log "$1 /data/osmosis/state.txt missing, redownloading, updates might be missing, you probably should redownload and reinitialise"
       download "$OSM_PBF_UPDATE_URL"/state.txt /data/osmosis/state.txt
     fi
+
+    cd /data/osmosis
+    if [ -f "changes.osc.gz" ]; then
+      eval $(grep "sequenceNumber=[0-9]\+" state.txt)
+      log "$1 old change file found which would indicate a previous error and exit, reprocessing $sequenceNumber"
+      log "$1 updating database"
+      gosu osm osm2pgsql --append -U "$POSTGRES_USER" -d "$POSTGRES_DB" -H "$POSTGRES_HOST" --slim -C "$OSM2PGSQLCACHE" \
+        --style /usr/local/share/openstreetmap-carto/openstreetmap-carto.style \
+        --tag-transform-script /usr/local/share/openstreetmap-carto/openstreetmap-carto.lua \
+        --hstore --hstore-add-index changes.osc.gz || {
+        log "$1 osm2pgsql error applying changes to database, exit 22"
+        sleep 10
+        exit 22
+      }
+      mv -f changes.osc.gz changes-processed.osc.gz
+    fi
+
+    if [ -f "changes-processed.osc.gz" ]; then
+      log "$1 updating /data/$OSM_PBF"
+      gosu osm osmosis --read-xml-change file=changes-processed.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
+        --write-pbf file="$OSM_PBF" &&
+        mv "$OSM_PBF" /data/"$OSM_PBF" || {
+        log "$1 error applying changes, exit 23"
+        sleep 10
+        exit 23
+      }
+      rm -f changes-processed.osc.gz
+    fi
+
     eval $(grep "sequenceNumber=[0-9]\+" /data/osmosis/state.txt)
     oldsequenceNumber="$sequenceNumber"
     count=0
@@ -211,13 +240,15 @@ if [ "$1" = "renderd-updatedb" ]; then
         log "$1 osm2pgsql error applying changes to database, exit 3"
         exit 3
       }
-      log "updating /data/$OSM_PBF"
-      gosu osm osmosis --read-xml-change file=changes.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
+      mv -f changes.osc.gz changes-processed.osc.gz
+      log "$1 updating /data/$OSM_PBF"
+      gosu osm osmosis --read-xml-change file=changes-processed.osc.gz --read-pbf file=/data/"$OSM_PBF" --apply-change \
         --write-pbf file="$OSM_PBF" &&
         mv "$OSM_PBF" /data/"$OSM_PBF" || {
         log "$1 error applying changes, exit 17"
         exit 17
       }
+      rm -f changes-processed.osc.gz
       oldsequenceNumber="$sequenceNumber"
       gosu osm osmosis --read-replication-interval workingDirectory=/data/osmosis --simplify-change \
         --write-xml-change changes.osc.gz || {
@@ -226,12 +257,13 @@ if [ "$1" = "renderd-updatedb" ]; then
       }
       eval $(grep "sequenceNumber=[0-9]\+" state.txt)
       if [ "$oldsequenceNumber" = "$sequenceNumber" ]; then
+        rm -f changes.osc.gz
         break
       fi
       sleep 10
     done
 
-    rm -f /data/renderd-updatedb.lock
+    rm -f /data/renderd-updatedb.lock /data/osmosis/changes.osc.gz
     : ${RENDERD_UPDATE_SLEEP:=86400}
     log "$1 finished, sleeping for $RENDERD_UPDATE_SLEEP seconds"
     sleep "$RENDERD_UPDATE_SLEEP"
