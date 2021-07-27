@@ -88,7 +88,7 @@ RUN set -ex; \
 # uid                  PostgreSQL Debian Repository
 	key='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8'; \
 	export GNUPGHOME="$(mktemp -d)"; \
-	gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+	gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
 	gpg --batch --export "$key" > /etc/apt/trusted.gpg.d/postgres.gpg; \
 	command -v gpgconf > /dev/null && gpgconf --kill all; \
 	rm -rf "$GNUPGHOME"; \
@@ -112,7 +112,7 @@ RUN set -ex; \
 	    libpq5 \
 	    python3-dev; \
 	python3 -m pip install wheel setuptools; \
-	python3 -m pip install osmium psycopg2 requests pyyaml; \
+	python3 -m pip install osmium psycopg2==2.8.2 requests pyyaml; \
 	apt-get purge -y \
 	    build-essential \
 	    libpq-dev \

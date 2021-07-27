@@ -351,7 +351,7 @@ EOF
     echo "CREATE INDEX planet_osm_line_index_1 ON planet_osm_line USING GIST (way);" |
       gosu osm psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB
     rm -f /data/osm.xml
-    echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+    #echo "VACUUM FULL FREEZE VERBOSE ANALYZE;" | gosu osm psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
   fi
 
   if [ "$REDOWNLOAD" ] || [ ! "$(ls /usr/local/share/openstreetmap-carto/data/)" ]; then
